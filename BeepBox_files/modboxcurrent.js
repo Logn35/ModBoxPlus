@@ -374,9 +374,9 @@ var beepbox;
     Config.barCountMin = 1;
     Config.barCountMax = 256;
     Config.patternsPerChannelMin = 1;
-    Config.patternsPerChannelMax = 64;
+    Config.patternsPerChannelMax = 99;
     Config.instrumentsPerChannelMin = 1;
-    Config.instrumentsPerChannelMax = 64;
+    Config.instrumentsPerChannelMax = 99;
     Config.partNames =  ["÷3 (triplets)", "÷4 (standard)", "÷6", "÷8", "÷16 (arpfest)", "÷12", "÷9", "÷5", "÷50", "÷24"];
     Config.partCounts = [3,               4,               6,    8,    16,              12,    9,    5,    50,    24   ];
     Config.waveNames =   ["triangle", "square", "pulse wide", "pulse narrow", "sawtooth", "double saw", "double pulse", "spiky", "plateau", "glitch", "10% pulse", "sunsoft bass", "loud pulse", "sax", "guitar", "sine", "atari bass", "atari pulse", "1% pulse", "curved sawtooth", "viola", "brass", "acoustic bass", "lyre", "ramp pulse", "piccolo", "squaretooth", "flatline", "pnryshk a (u5)", "pnryshk b (riff)"];
@@ -847,6 +847,22 @@ Config.operatorCarrierChorus = [
         return Pattern;
     }());
     beepbox.Pattern = Pattern;
+    function cloneNoteArray(notes) {
+        var result = [];
+        for (var _i = 0, notes_1 = notes; _i < notes_1.length; _i++) {
+            var oldNote = notes_1[_i];
+            var newNote = makeNote(-1, oldNote.start, oldNote.end, 3);
+            newNote.pitches = oldNote.pitches.concat();
+            newNote.pins = [];
+            for (var _a = 0, _b = oldNote.pins; _a < _b.length; _a++) {
+                var oldPin = _b[_a];
+                newNote.pins.push(makeNotePin(oldPin.interval, oldPin.time, oldPin.volume));
+            }
+            result.push(newNote);
+        }
+        return result;
+    }
+    beepbox.cloneNoteArray = cloneNoteArray;
     var Operator = (function () {
         function Operator(index) {
             this.frequency = 0;
@@ -1047,7 +1063,7 @@ Config.operatorCarrierChorus = [
             this.scale = 0;
 			this.theme = 0;
             this.key = Config.keyNames.length - 1;
-			this.mix = 1;
+			this.mix = 0;
 			this.sampleRate = 2;
             this.loopStart = 0;
             this.loopLength = 4;
@@ -1091,7 +1107,7 @@ Config.operatorCarrierChorus = [
                     }
                     channel.instruments.length = this.instrumentsPerChannel;
                     for (var bar = 0; bar < this.barCount; bar++) {
-                        channel.bars[bar] = 1;
+                        channel.bars[bar] = 0;
                     }
                     channel.bars.length = this.barCount;
                 }
@@ -4048,7 +4064,7 @@ var beepbox;
             if (doc.song.barCount != newValue) {
                 for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
                     for (var bar = doc.song.barCount; bar < newValue; bar++) {
-                        doc.song.channels[channel].bars[bar] = 1;
+                        doc.song.channels[channel].bars[bar] = 0;
                     }
                     doc.song.channels[channel].bars.length = newValue;
                 }
@@ -4075,6 +4091,68 @@ var beepbox;
         return ChangeBarCount;
     }(beepbox.Change));
     beepbox.ChangeBarCount = ChangeBarCount;
+    var ChangeInsertBar = (function (_super) {
+        __extends(ChangeInsertBar, _super);
+        function ChangeInsertBar(doc, insertionIndex) {
+            var _this = _super.call(this) || this;
+            if (doc.song.barCount >= beepbox.Config.barCountMax)
+                return _this;
+            insertionIndex = Math.max(0, Math.min(doc.song.barCount, insertionIndex));
+            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
+                var bars = doc.song.channels[channel].bars;
+                for (var bar = doc.song.barCount; bar > insertionIndex; bar--) {
+                    bars[bar] = bars[bar - 1];
+                }
+                bars[insertionIndex] = 0;
+                bars.length = doc.song.barCount + 1;
+            }
+            if (insertionIndex <= doc.song.loopStart) {
+                doc.song.loopStart++;
+            }
+            else if (insertionIndex < doc.song.loopStart + doc.song.loopLength) {
+                doc.song.loopLength++;
+            }
+            doc.song.barCount++;
+            doc.notifier.changed();
+            _this._didSomething();
+            return _this;
+        }
+        return ChangeInsertBar;
+    }(beepbox.Change));
+    beepbox.ChangeInsertBar = ChangeInsertBar;
+    var ChangeDeleteBar = (function (_super) {
+        __extends(ChangeDeleteBar, _super);
+        function ChangeDeleteBar(doc, deletionIndex) {
+            var _this = _super.call(this) || this;
+            if (doc.song.barCount <= beepbox.Config.barCountMin)
+                return _this;
+            deletionIndex = Math.max(0, Math.min(doc.song.barCount - 1, deletionIndex));
+            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
+                var bars = doc.song.channels[channel].bars;
+                for (var bar = deletionIndex; bar < doc.song.barCount - 1; bar++) {
+                    bars[bar] = bars[bar + 1];
+                }
+                bars.length = doc.song.barCount - 1;
+            }
+            if (deletionIndex < doc.song.loopStart) {
+                doc.song.loopStart = Math.max(0, doc.song.loopStart - 1);
+            }
+            else if (deletionIndex < doc.song.loopStart + doc.song.loopLength) {
+                doc.song.loopLength = Math.max(1, doc.song.loopLength - 1);
+                if (doc.song.loopStart + doc.song.loopLength > doc.song.barCount - 1) {
+                    doc.song.loopStart = Math.max(0, doc.song.barCount - 1 - doc.song.loopLength);
+                }
+            }
+            doc.song.barCount--;
+            doc.bar = Math.min(doc.bar, doc.song.barCount - 1);
+            doc.barScrollPos = Math.max(0, Math.min(doc.song.barCount - doc.trackVisibleBars, doc.barScrollPos));
+            doc.notifier.changed();
+            _this._didSomething();
+            return _this;
+        }
+        return ChangeDeleteBar;
+    }(beepbox.Change));
+    beepbox.ChangeDeleteBar = ChangeDeleteBar;
     var ChangeChannelCount = (function (_super) {
         __extends(ChangeChannelCount, _super);
         function ChangeChannelCount(doc, newPitchChannelCount, newDrumChannelCount) {
@@ -4170,6 +4248,152 @@ var beepbox;
         return ChangeChannelBar;
     }(beepbox.Change));
     beepbox.ChangeChannelBar = ChangeChannelBar;
+    var ChangeBarPattern = (function (_super) {
+        __extends(ChangeBarPattern, _super);
+        function ChangeBarPattern(doc, channelIndex, barIndex, newPatternIndex) {
+            var _this = _super.call(this, false) || this;
+            _this._doc = doc;
+            _this._channelIndex = channelIndex;
+            _this._barIndex = barIndex;
+            _this._oldPatternIndex = doc.song.channels[channelIndex].bars[barIndex];
+            _this._newPatternIndex = newPatternIndex;
+            if (_this._oldPatternIndex != _this._newPatternIndex) {
+                _this._didSomething();
+                _this.redo();
+            }
+            return _this;
+        }
+        ChangeBarPattern.prototype._doForwards = function () {
+            this._doc.song.channels[this._channelIndex].bars[this._barIndex] = this._newPatternIndex;
+            this._doc.notifier.changed();
+        };
+        ChangeBarPattern.prototype._doBackwards = function () {
+            this._doc.song.channels[this._channelIndex].bars[this._barIndex] = this._oldPatternIndex;
+            this._doc.notifier.changed();
+        };
+        return ChangeBarPattern;
+    }(beepbox.UndoableChange));
+    beepbox.ChangeBarPattern = ChangeBarPattern;
+    var ChangePatternContents = (function (_super) {
+        __extends(ChangePatternContents, _super);
+        function ChangePatternContents(doc, pattern, notes, instrument) {
+            var _this = _super.call(this, false) || this;
+            _this._doc = doc;
+            _this._pattern = pattern;
+            _this._oldNotes = beepbox.cloneNoteArray(pattern.notes);
+            _this._newNotes = beepbox.cloneNoteArray(notes);
+            _this._oldInstrument = pattern.instrument;
+            _this._newInstrument = instrument;
+            if (_this._oldInstrument != _this._newInstrument || JSON.stringify(_this._oldNotes) != JSON.stringify(_this._newNotes)) {
+                _this._didSomething();
+                _this.redo();
+            }
+            return _this;
+        }
+        ChangePatternContents.prototype._doForwards = function () {
+            this._pattern.notes = beepbox.cloneNoteArray(this._newNotes);
+            this._pattern.instrument = this._newInstrument;
+            this._doc.notifier.changed();
+        };
+        ChangePatternContents.prototype._doBackwards = function () {
+            this._pattern.notes = beepbox.cloneNoteArray(this._oldNotes);
+            this._pattern.instrument = this._oldInstrument;
+            this._doc.notifier.changed();
+        };
+        return ChangePatternContents;
+    }(beepbox.UndoableChange));
+    beepbox.ChangePatternContents = ChangePatternContents;
+    var ChangeEnsurePatternExists = (function (_super) {
+        __extends(ChangeEnsurePatternExists, _super);
+        function ChangeEnsurePatternExists(doc, channelIndex, barIndex) {
+            var _this = _super.call(this, false) || this;
+            _this._doc = doc;
+            _this._channelIndex = channelIndex;
+            _this._barIndex = barIndex;
+            _this._patternIndex = 0;
+            _this._oldPatternCount = doc.song.patternsPerChannel;
+            _this._newPatternCount = doc.song.patternsPerChannel;
+            _this._newInstrument = doc.getCurrentInstrument();
+            var song = doc.song;
+            if (song.channels[channelIndex].bars[barIndex] != 0) {
+                return _this;
+            }
+            var firstEmptyUnusedIndex = null;
+            var firstUnusedIndex = null;
+            for (var patternIndex = 1; patternIndex <= song.patternsPerChannel; patternIndex++) {
+                var used = false;
+                for (var testBar = 0; testBar < song.barCount; testBar++) {
+                    if (song.channels[channelIndex].bars[testBar] == patternIndex) {
+                        used = true;
+                        break;
+                    }
+                }
+                if (used)
+                    continue;
+                if (firstUnusedIndex == null) {
+                    firstUnusedIndex = patternIndex;
+                }
+                if (song.channels[channelIndex].patterns[patternIndex - 1].notes.length == 0) {
+                    firstEmptyUnusedIndex = patternIndex;
+                    break;
+                }
+            }
+            if (firstEmptyUnusedIndex != null) {
+                _this._patternIndex = firstEmptyUnusedIndex;
+                _this._oldInstrument = song.channels[channelIndex].patterns[firstEmptyUnusedIndex - 1].instrument;
+            }
+            else if (song.patternsPerChannel < song.barCount) {
+                _this._newPatternCount = song.patternsPerChannel + 1;
+                _this._patternIndex = _this._newPatternCount;
+            }
+            else if (firstUnusedIndex != null) {
+                _this._patternIndex = firstUnusedIndex;
+                _this._oldNotes = song.channels[channelIndex].patterns[firstUnusedIndex - 1].notes;
+                _this._oldInstrument = song.channels[channelIndex].patterns[firstUnusedIndex - 1].instrument;
+            }
+            if (_this._patternIndex != 0) {
+                _this._didSomething();
+                _this.redo();
+            }
+            return _this;
+        }
+        ChangeEnsurePatternExists.prototype._doForwards = function () {
+            if (this._patternIndex == 0)
+                return;
+            var song = this._doc.song;
+            for (var pattern = song.patternsPerChannel; pattern < this._newPatternCount; pattern++) {
+                for (var channel = 0; channel < song.getChannelCount(); channel++) {
+                    song.channels[channel].patterns[pattern] = new beepbox.Pattern();
+                }
+            }
+            song.patternsPerChannel = this._newPatternCount;
+            var ensuredPattern = song.channels[this._channelIndex].patterns[this._patternIndex - 1];
+            ensuredPattern.notes = [];
+            ensuredPattern.instrument = this._newInstrument;
+            song.channels[this._channelIndex].bars[this._barIndex] = this._patternIndex;
+            this._doc.notifier.changed();
+        };
+        ChangeEnsurePatternExists.prototype._doBackwards = function () {
+            if (this._patternIndex == 0)
+                return;
+            var song = this._doc.song;
+            var ensuredPattern = song.channels[this._channelIndex].patterns[this._patternIndex - 1];
+            if (this._oldNotes != null) {
+                ensuredPattern.notes = this._oldNotes;
+            }
+            if (this._oldInstrument != null) {
+                ensuredPattern.instrument = this._oldInstrument;
+            }
+            song.channels[this._channelIndex].bars[this._barIndex] = 0;
+            for (var channel = 0; channel < song.getChannelCount(); channel++) {
+                song.channels[channel].patterns.length = this._oldPatternCount;
+            }
+            song.patternsPerChannel = this._oldPatternCount;
+            this._doc.notifier.changed();
+        };
+        return ChangeEnsurePatternExists;
+    }(beepbox.UndoableChange));
+    beepbox.ChangeEnsurePatternExists = ChangeEnsurePatternExists;
     var ChangeVolBend = (function (_super) {
         __extends(ChangeVolBend, _super);
         function ChangeVolBend(doc, newValue) {
@@ -4278,6 +4502,57 @@ var beepbox;
         return ChangeImute;
     }(beepbox.Change));
     beepbox.ChangeImute = ChangeImute;
+	var ChangeSoloChannel = (function (_super) {
+        __extends(ChangeSoloChannel, _super);
+        function ChangeSoloChannel(doc, soloChannel) {
+            var _this = _super.call(this, false) || this;
+            _this._doc = doc;
+            _this._oldValues = [];
+            _this._newValues = [];
+            var alreadySoloed = true;
+            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
+                var shouldBeMuted = channel != soloChannel;
+                _this._oldValues[channel] = [];
+                _this._newValues[channel] = [];
+                for (var instrument = 0; instrument < doc.song.channels[channel].instruments.length; instrument++) {
+                    var oldValue = doc.song.channels[channel].instruments[instrument].imute;
+                    if (oldValue != (shouldBeMuted ? 1 : 0)) {
+                        alreadySoloed = false;
+                    }
+                    var newValue = alreadySoloed ? 0 : (shouldBeMuted ? 1 : 0);
+                    _this._oldValues[channel][instrument] = oldValue;
+                    _this._newValues[channel][instrument] = newValue;
+                }
+            }
+            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
+                for (var instrument = 0; instrument < doc.song.channels[channel].instruments.length; instrument++) {
+                    if (_this._oldValues[channel][instrument] != _this._newValues[channel][instrument]) {
+                        _this._didSomething();
+                    }
+                }
+            }
+            if (!_this.isNoop()) {
+                _this.redo();
+            }
+            return _this;
+        }
+        ChangeSoloChannel.prototype._applyValues = function (values) {
+            for (var channel = 0; channel < this._doc.song.getChannelCount(); channel++) {
+                for (var instrument = 0; instrument < this._doc.song.channels[channel].instruments.length; instrument++) {
+                    this._doc.song.channels[channel].instruments[instrument].imute = values[channel][instrument];
+                }
+            }
+            this._doc.notifier.changed();
+        };
+        ChangeSoloChannel.prototype._doForwards = function () {
+            this._applyValues(this._newValues);
+        };
+        ChangeSoloChannel.prototype._doBackwards = function () {
+            this._applyValues(this._oldValues);
+        };
+        return ChangeSoloChannel;
+    }(beepbox.UndoableChange));
+    beepbox.ChangeSoloChannel = ChangeSoloChannel;
 	
     var ChangeIpan = (function (_super) {
         __extends(ChangeIpan, _super);
@@ -5015,7 +5290,7 @@ var beepbox;
     beepbox.ChangeNoteTruncate = ChangeNoteTruncate;
     var ChangeTransposeNote = (function (_super) {
         __extends(ChangeTransposeNote, _super);
-        function ChangeTransposeNote(doc, note, upward) {
+        function ChangeTransposeNote(doc, note, upward, octave) {
             var _this = _super.call(this, false) || this;
             _this._doc = doc;
             _this._note = note;
@@ -5023,12 +5298,22 @@ var beepbox;
             _this._newPins = [];
             _this._oldPitches = note.pitches;
             _this._newPitches = [];
-            var maxPitch = (doc.song.getChannelIsDrum(doc.channel) ? beepbox.Config.drumCount - 1 : beepbox.Config.maxPitch);
+            if (octave === void 0) { octave = false; }
+            var isDrum = doc.song.getChannelIsDrum(doc.channel);
+            var maxPitch = (isDrum ? beepbox.Config.drumCount - 1 : beepbox.Config.maxPitch);
             for (var i = 0; i < _this._oldPitches.length; i++) {
                 var pitch = _this._oldPitches[i];
-                if (upward) {
+                if (octave && !isDrum) {
+                    if (upward) {
+                        pitch = Math.min(maxPitch, pitch + 12);
+                    }
+                    else {
+                        pitch = Math.max(0, pitch - 12);
+                    }
+                }
+                else if (upward) {
                     for (var j = pitch + 1; j <= maxPitch; j++) {
-                        if (doc.song.getChannelIsDrum(doc.channel) || beepbox.Config.scaleFlags[doc.song.scale][j % 12]) {
+                        if (isDrum || beepbox.Config.scaleFlags[doc.song.scale][j % 12]) {
                             pitch = j;
                             break;
                         }
@@ -5036,7 +5321,7 @@ var beepbox;
                 }
                 else {
                     for (var j = pitch - 1; j >= 0; j--) {
-                        if (doc.song.getChannelIsDrum(doc.channel) || beepbox.Config.scaleFlags[doc.song.scale][j % 12]) {
+                        if (isDrum || beepbox.Config.scaleFlags[doc.song.scale][j % 12]) {
                             pitch = j;
                             break;
                         }
@@ -5068,9 +5353,17 @@ var beepbox;
                     interval = min;
                 if (interval > max)
                     interval = max;
-                if (upward) {
+                if (octave && !isDrum) {
+                    if (upward) {
+                        interval = Math.min(max, interval + 12);
+                    }
+                    else {
+                        interval = Math.max(min, interval - 12);
+                    }
+                }
+                else if (upward) {
                     for (var i = interval + 1; i <= max; i++) {
-                        if (doc.song.getChannelIsDrum(doc.channel) || beepbox.Config.scaleFlags[doc.song.scale][i % 12]) {
+                        if (isDrum || beepbox.Config.scaleFlags[doc.song.scale][i % 12]) {
                             interval = i;
                             break;
                         }
@@ -5078,7 +5371,7 @@ var beepbox;
                 }
                 else {
                     for (var i = interval - 1; i >= min; i--) {
-                        if (doc.song.getChannelIsDrum(doc.channel) || beepbox.Config.scaleFlags[doc.song.scale][i % 12]) {
+                        if (isDrum || beepbox.Config.scaleFlags[doc.song.scale][i % 12]) {
                             interval = i;
                             break;
                         }
@@ -5119,10 +5412,11 @@ var beepbox;
     beepbox.ChangeTransposeNote = ChangeTransposeNote;
     var ChangeTranspose = (function (_super) {
         __extends(ChangeTranspose, _super);
-        function ChangeTranspose(doc, pattern, upward) {
+        function ChangeTranspose(doc, pattern, upward, octave) {
             var _this = _super.call(this) || this;
+            if (octave === void 0) { octave = false; }
             for (var i = 0; i < pattern.notes.length; i++) {
-                _this.append(new ChangeTransposeNote(doc, pattern.notes[i], upward));
+                _this.append(new ChangeTransposeNote(doc, pattern.notes[i], upward, octave));
             }
             return _this;
         }
@@ -5345,8 +5639,6 @@ var beepbox;
             };
             this._whenMousePressed = function (event) {
                 event.preventDefault();
-                if (_this._pattern == null)
-                    return;
                 var boundingRect = _this._svg.getBoundingClientRect();
                 _this._mouseX = ((event.clientX || event.pageX) - boundingRect.left) * _this._editorWidth / (boundingRect.right - boundingRect.left);
                 _this._mouseY = ((event.clientY || event.pageY) - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
@@ -5359,8 +5651,6 @@ var beepbox;
             };
             this._whenTouchPressed = function (event) {
                 event.preventDefault();
-                if (_this._pattern == null)
-                    return;
                 var boundingRect = _this._svg.getBoundingClientRect();
                 _this._mouseX = (event.touches[0].clientX - boundingRect.left) * _this._editorWidth / (boundingRect.right - boundingRect.left);
                 _this._mouseY = (event.touches[0].clientY - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
@@ -5398,8 +5688,6 @@ var beepbox;
             this._whenCursorReleased = function (event) {
                 if (!_this._cursor.valid)
                     return;
-                if (_this._pattern == null)
-                    return;
                 var continuousState = _this._doc.lastChangeWas(_this._dragChange);
                 if (_this._mouseDragging && continuousState) {
                     if (_this._dragChange != null) {
@@ -5415,7 +5703,13 @@ var beepbox;
                             var oldPin = _a[_i];
                             note.pins.push(beepbox.makeNotePin(0, oldPin.time, oldPin.volume));
                         }
-                        _this._doc.record(new beepbox.ChangeNoteAdded(_this._doc, _this._pattern, note, _this._cursor.curIndex));
+                        var sequence = new beepbox.ChangeSequence();
+                        var pattern = _this._ensurePatternExists(sequence);
+                        if (pattern != null) {
+                            sequence.append(new beepbox.ChangeNoteAdded(_this._doc, pattern, note, _this._cursor.curIndex));
+                            _this._doc.record(sequence);
+                            _this._pattern = pattern;
+                        }
                     }
                     else {
                         if (_this._cursor.pitchIndex == -1) {
@@ -5587,7 +5881,7 @@ var beepbox;
                     _this._svgBackground.style.visibility = "visible";
                 }
                 else {
-                    _this._svgBackground.style.visibility = "hidden";
+                    _this._svgBackground.style.visibility = "visible";
                 }
             };
             for (var i = 0; i < 12; i++) {
@@ -5631,13 +5925,13 @@ var beepbox;
             return this._doc.song.partsPerBeat;
         };
         PatternEditor.prototype._updateCursorStatus = function () {
-            if (this._pattern == null)
-                return;
             this._cursor = new PatternCursor();
             if (this._mouseX < 0 || this._mouseX > this._editorWidth || this._mouseY < 0 || this._mouseY > this._editorHeight)
                 return;
             this._cursor.part = Math.floor(Math.max(0, Math.min(this._doc.song.beatsPerBar * this._doc.song.partsPerBeat - 1, this._mouseX / this._partWidth)));
-            for (var _i = 0, _a = this._pattern.notes; _i < _a.length; _i++) {
+            var pattern = this._pattern;
+            var notes = pattern == null ? [] : pattern.notes;
+            for (var _i = 0, _a = notes; _i < _a.length; _i++) {
                 var note = _a[_i];
                 if (note.end <= this._cursor.part) {
                     this._cursor.prevNote = note;
@@ -5854,8 +6148,6 @@ var beepbox;
         PatternEditor.prototype._whenCursorMoved = function () {
             var start;
             var end;
-            if (this._pattern == null)
-                return;
             var continuousState = this._doc.lastChangeWas(this._dragChange);
             if (this._mouseDown && this._cursor.valid && continuousState) {
                 if (!this._mouseDragging) {
@@ -5875,6 +6167,12 @@ var beepbox;
                     this._dragChange = sequence;
                     this._doc.setProspectiveChange(this._dragChange);
                     if (this._cursor.curNote == null) {
+                        var pattern = this._ensurePatternExists(sequence);
+                        if (pattern == null) {
+                            this._mouseXPrev = this._mouseX;
+                            this._mouseYPrev = this._mouseY;
+                            return;
+                        }
                         var backwards = void 0;
                         var directLength = void 0;
                         if (currentPart < this._cursor.start) {
@@ -5921,19 +6219,20 @@ var beepbox;
                             start = 0;
                         if (end > this._doc.song.beatsPerBar * this._doc.song.partsPerBeat)
                             end = this._doc.song.beatsPerBar * this._doc.song.partsPerBeat;
-                        sequence.append(new beepbox.ChangeNoteTruncate(this._doc, this._pattern, start, end));
+                        sequence.append(new beepbox.ChangeNoteTruncate(this._doc, pattern, start, end));
                         var i = void 0;
-                        for (i = 0; i < this._pattern.notes.length; i++) {
-                            if (this._pattern.notes[i].start >= end)
+                        for (i = 0; i < pattern.notes.length; i++) {
+                            if (pattern.notes[i].start >= end)
                                 break;
                         }
                         var theNote = beepbox.makeNote(this._cursor.pitch, start, end, 3, this._doc.song.getChannelIsDrum(this._doc.channel));
-                        sequence.append(new beepbox.ChangeNoteAdded(this._doc, this._pattern, theNote, i));
+                        sequence.append(new beepbox.ChangeNoteAdded(this._doc, pattern, theNote, i));
                         this._copyPins(theNote);
                         this._dragTime = backwards ? start : end;
                         this._dragPitch = this._cursor.pitch;
                         this._dragVolume = theNote.pins[backwards ? 0 : 1].volume;
                         this._dragVisible = true;
+                        this._pattern = pattern;
                     }
                     else if (this._mouseHorizontal) {
                         var shift = Math.round((this._mouseX - this._mouseXStart) / this._partWidth);
@@ -6040,7 +6339,7 @@ var beepbox;
         };
         PatternEditor.prototype._updatePreview = function () {
             if (this._usingTouch) {
-                if (!this._mouseDown || !this._cursor.valid || !this._mouseDragging || !this._dragVisible || this._pattern == null) {
+                if (!this._mouseDown || !this._cursor.valid || !this._mouseDragging || !this._dragVisible) {
                     this._svgPreview.setAttribute("visibility", "hidden");
                 }
                 else {
@@ -6067,7 +6366,7 @@ var beepbox;
                 }
             }
             else {
-                if (!this._mouseOver || this._mouseDown || !this._cursor.valid || this._pattern == null) {
+                if (!this._mouseOver || this._mouseDown || !this._cursor.valid) {
                     this._svgPreview.setAttribute("visibility", "hidden");
                 }
                 else {
@@ -6075,6 +6374,13 @@ var beepbox;
                     this._drawNote(this._svgPreview, this._cursor.pitch, this._cursor.start, this._cursor.pins, this._pitchHeight / 2 + 1, true, this._octaveOffset);
                 }
             }
+        };
+        PatternEditor.prototype._ensurePatternExists = function (sequence) {
+            var pattern = this._doc.getCurrentPattern();
+            if (pattern != null)
+                return pattern;
+            sequence.append(new beepbox.ChangeEnsurePatternExists(this._doc, this._doc.channel, this._doc.bar));
+            return this._doc.getCurrentPattern();
         };
         PatternEditor.prototype._drawNote = function (svgElement, pitch, start, pins, radius, showVolume, offset) {
             var nextPin = pins[0];
@@ -6159,7 +6465,7 @@ var beepbox;
 				this._label.setAttribute("y", "" + 23);
 			}
         };
-        Box.prototype.setIndex = function (index, dim, selected, y, color, volume, colorb, selectedchannel, showVolume, mix) {
+        Box.prototype.setIndex = function (index, dim, selected, multiSelected, y, color, volume, colorb, selectedchannel, showVolume, mix) {
 			if (mix == 2) {
 				this._vol1.setAttribute("height", 18 - (volume * 2));
 				this._vol1.setAttribute("y", 5 + (volume * 2));
@@ -6195,18 +6501,10 @@ var beepbox;
                     this._label.setAttribute("fill", "#000000");
                 }
                 else {
-					if (true) {	
-						this._rect.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : "#444444");
-						this._vol1.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : color);
-						this._volb.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : colorb);
-						this._label.setAttribute("fill", color);
-					}
-					else {
-						this._rect.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : "#ffffff");
-						this._vol1.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : "#ffffff");
-						this._volb.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : "#ffffff");
-						this._label.setAttribute("fill", color);
-					};
+					this._rect.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : "#444444");
+					this._vol1.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : color);
+					this._volb.setAttribute("fill", (this._renderedIndex == 0) ? "#000000" : colorb);
+					this._label.setAttribute("fill", color);
                 }
             }
 			if(showVolume){
@@ -6235,6 +6533,8 @@ var beepbox;
             this._boxContainer = beepbox.svgElement("g");
             this._playhead = beepbox.svgElement("rect", { fill: "white", x: 0, y: 0, width: 4, height: 128 });
             this._boxHighlight = beepbox.svgElement("rect", { fill: "none", stroke: "white", "stroke-width": 2, "pointer-events": "none", x: 1, y: 1, width: 30, height: 30 });
+            this._selectionFill = beepbox.svgElement("rect", { fill: "#808080", opacity: 0.28, stroke: "none", "pointer-events": "none", visibility: "hidden", x: 1, y: 1, width: 30, height: 30 });
+            this._selectionHighlight = beepbox.svgElement("rect", { fill: "none", stroke: "white", "stroke-width": 2, "stroke-dasharray": "4 2", "pointer-events": "none", visibility: "hidden", x: 1, y: 1, width: 30, height: 30 });
             this._upHighlight = beepbox.svgElement("path", { fill: "black", stroke: "black", "stroke-width": 1, "pointer-events": "none" });
             this._downHighlight = beepbox.svgElement("path", { fill: "black", stroke: "black", "stroke-width": 1, "pointer-events": "none" });
             this._grid = [];
@@ -6245,6 +6545,15 @@ var beepbox;
             this._digits = "";
             this._editorHeight = 128;
             this._channelHeight = 32;
+            this._mouseDown = false;
+            this._dragSelecting = false;
+            this._dragBar = 0;
+            this._dragChannel = 0;
+            this._pressedOnCurrentBox = false;
+            this._selectionBarStart = 0;
+            this._selectionBarEnd = 0;
+            this._selectionChannelStart = 0;
+            this._selectionChannelEnd = 0;
             this._renderedChannelCount = 0;
             this._renderedBarCount = 0;
             this._renderedPatternCount = 0;
@@ -6277,9 +6586,57 @@ var beepbox;
                 var boundingRect = _this._svg.getBoundingClientRect();
                 _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
                 _this._mouseY = (event.clientY || event.pageY) - boundingRect.top;
-                var channel = Math.floor(Math.min(_this._doc.song.getChannelCount() - 1, Math.max(0, _this._mouseY / _this._channelHeight)));
-                var bar = Math.floor(Math.min(_this._doc.song.barCount - 1, Math.max(0, _this._mouseX / _this._barWidth)));
-                if (_this._doc.channel == channel && _this._doc.bar == bar) {
+                _this._mouseDown = true;
+                _this._dragSelecting = false;
+                _this._dragChannel = _this._findChannel();
+                _this._dragBar = _this._findBar();
+                _this._pressedOnCurrentBox = (_this._doc.channel == _this._dragChannel && _this._doc.bar == _this._dragBar);
+                _this._selectionBarStart = _this._dragBar;
+                _this._selectionBarEnd = _this._dragBar;
+                _this._selectionChannelStart = _this._dragChannel;
+                _this._selectionChannelEnd = _this._dragChannel;
+                if (_this._doc.channel != _this._dragChannel || _this._doc.bar != _this._dragBar) {
+                    _this._doc.channel = _this._dragChannel;
+                    _this._doc.bar = _this._dragBar;
+                    _this._doc.barScrollPos = Math.min(_this._doc.bar, Math.max(_this._doc.bar - (_this._doc.trackVisibleBars - 1), _this._doc.barScrollPos));
+                }
+                if (!_this._doc.synth.playing) {
+                    _this._doc.synth.snapToBar(_this._dragBar);
+                }
+                _this._doc.notifier.changed();
+            };
+            this._whenMouseMoved = function (event) {
+                var boundingRect = _this._svg.getBoundingClientRect();
+                _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
+                _this._mouseY = (event.clientY || event.pageY) - boundingRect.top;
+                if (_this._mouseDown) {
+                    var channel = _this._findChannel();
+                    var bar = _this._findBar();
+                    if (channel != _this._dragChannel || bar != _this._dragBar) {
+                        _this._dragSelecting = true;
+                        _this._setTrackSelection(_this._dragBar, bar, _this._dragChannel, channel);
+                    }
+                }
+                _this._updatePreview();
+            };
+            this._whenMouseReleased = function (event) {
+                if (!_this._mouseDown)
+                    return;
+                _this._mouseDown = false;
+                if (_this._dragSelecting) {
+                    _this._doc.channel = _this._dragChannel;
+                    _this._doc.bar = _this._dragBar;
+                    _this._doc.barScrollPos = Math.min(_this._doc.bar, Math.max(_this._doc.bar - (_this._doc.trackVisibleBars - 1), _this._doc.barScrollPos));
+                    if (!_this._doc.synth.playing) {
+                        _this._doc.synth.snapToBar(_this._dragBar);
+                    }
+                    _this._doc.notifier.changed();
+                    return;
+                }
+                var channel = _this._dragChannel;
+                var bar = _this._dragBar;
+                _this.clearSelection();
+                if (_this._pressedOnCurrentBox) {
                     var up = (_this._mouseY % _this._channelHeight) < _this._channelHeight / 2;
                     var patternCount = _this._doc.song.patternsPerChannel;
                     _this._setPattern((_this._doc.song.channels[channel].bars[bar] + (up ? 1 : patternCount)) % (patternCount + 1));
@@ -6288,16 +6645,10 @@ var beepbox;
                     _this._setChannelBar(channel, bar);
                 }
             };
-            this._whenMouseMoved = function (event) {
-                var boundingRect = _this._svg.getBoundingClientRect();
-                _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
-                _this._mouseY = (event.clientY || event.pageY) - boundingRect.top;
-                _this._updatePreview();
-            };
-            this._whenMouseReleased = function (event) {
-            };
             this._svg.appendChild(this._boxContainer);
             this._svg.appendChild(this._boxHighlight);
+            this._svg.appendChild(this._selectionFill);
+            this._svg.appendChild(this._selectionHighlight);
             this._svg.appendChild(this._upHighlight);
             this._svg.appendChild(this._downHighlight);
             this._svg.appendChild(this._playhead);
@@ -6309,12 +6660,71 @@ var beepbox;
             this._svg.addEventListener("mouseout", this._whenMouseOut);
             this._select.addEventListener("change", this._whenSelectChanged);
         }
+        TrackEditor.prototype._findBar = function () {
+            return Math.floor(Math.min(this._doc.song.barCount - 1, Math.max(0, this._mouseX / this._barWidth)));
+        };
+        TrackEditor.prototype._findChannel = function () {
+            return Math.floor(Math.min(this._doc.song.getChannelCount() - 1, Math.max(0, this._mouseY / this._channelHeight)));
+        };
+        TrackEditor.prototype._setTrackSelection = function (barStart, barEnd, channelStart, channelEnd) {
+            this._selectionBarStart = barStart;
+            this._selectionBarEnd = barEnd;
+            this._selectionChannelStart = channelStart;
+            this._selectionChannelEnd = channelEnd;
+            this._doc.notifier.changed();
+        };
+        TrackEditor.prototype.getSelection = function () {
+            return {
+                barStart: Math.min(this._selectionBarStart, this._selectionBarEnd),
+                barEnd: Math.max(this._selectionBarStart, this._selectionBarEnd),
+                channelStart: Math.min(this._selectionChannelStart, this._selectionChannelEnd),
+                channelEnd: Math.max(this._selectionChannelStart, this._selectionChannelEnd),
+            };
+        };
+        TrackEditor.prototype.hasSelection = function () {
+            var selection = this.getSelection();
+            return selection.barStart != selection.barEnd || selection.channelStart != selection.channelEnd;
+        };
+        TrackEditor.prototype.isSelected = function (bar, channel) {
+            return bar == this._doc.bar && channel == this._doc.channel;
+        };
+        TrackEditor.prototype.isMultiSelected = function (bar, channel) {
+            if (!this.hasSelection())
+                return false;
+            var selection = this.getSelection();
+            return bar >= selection.barStart && bar <= selection.barEnd && channel >= selection.channelStart && channel <= selection.channelEnd;
+        };
+        TrackEditor.prototype.clearSelection = function () {
+            if (!this.hasSelection())
+                return;
+            this._selectionBarStart = this._doc.bar;
+            this._selectionBarEnd = this._doc.bar;
+            this._selectionChannelStart = this._doc.channel;
+            this._selectionChannelEnd = this._doc.channel;
+            this._doc.notifier.changed();
+        };
         TrackEditor.prototype._setChannelBar = function (channel, bar) {
+            this._selectionBarStart = bar;
+            this._selectionBarEnd = bar;
+            this._selectionChannelStart = channel;
+            this._selectionChannelEnd = channel;
             new beepbox.ChangeChannelBar(this._doc, channel, bar);
             this._digits = "";
             this._doc.forgetLastChange();
         };
         TrackEditor.prototype._setPattern = function (pattern) {
+            if (this.hasSelection()) {
+                var selection = this.getSelection();
+                var group = new beepbox.ChangeGroup();
+                for (var channel = selection.channelStart; channel <= selection.channelEnd; channel++) {
+                    for (var bar = selection.barStart; bar <= selection.barEnd; bar++) {
+                        group.append(new beepbox.ChangeBarPattern(this._doc, channel, bar, pattern));
+                    }
+                }
+                this._doc.record(group);
+                this._changePattern = null;
+                return;
+            }
             var currentValue = this._doc.song.channels[this._doc.channel].bars[this._doc.bar];
             var canReplaceLastChange = this._doc.lastChangeWas(this._changePattern);
             var oldValue = canReplaceLastChange ? this._changePattern.oldValue : currentValue;
@@ -6387,6 +6797,12 @@ var beepbox;
             }
         };
         TrackEditor.prototype._nextDigit = function (digit) {
+            if (this.hasSelection()) {
+                var selectedPattern = this._doc.song.channels[this._doc.channel].bars[this._doc.bar];
+                if (this._digits.length > 0 && this._digits != String(selectedPattern)) {
+                    this._digits = "";
+                }
+            }
             this._digits += digit;
             var parsed = parseInt(this._digits);
             if (parsed <= this._doc.song.patternsPerChannel) {
@@ -6402,14 +6818,14 @@ var beepbox;
             this._digits = "";
         };
         TrackEditor.prototype._updatePreview = function () {
-            var channel = Math.floor(Math.min(this._doc.song.getChannelCount() - 1, Math.max(0, this._mouseY / this._channelHeight)));
-            var bar = Math.floor(Math.min(this._doc.song.barCount - 1, Math.max(0, this._mouseX / this._barWidth)));
+            var channel = this._findChannel();
+            var bar = this._findBar();
             var wideScreen = window.innerWidth > 700;
             if (!wideScreen) {
                 bar = this._doc.bar;
                 channel = this._doc.channel;
             }
-            var selected = (bar == this._doc.bar && channel == this._doc.channel);
+            var selected = this.isSelected(bar, channel);
             if (this._mouseOver && !selected) {
                 this._boxHighlight.setAttribute("x", "" + (1 + this._barWidth * bar));
                 this._boxHighlight.setAttribute("y", "" + (1 + (this._channelHeight * channel)));
@@ -6436,6 +6852,23 @@ var beepbox;
             else {
                 this._upHighlight.style.visibility = "hidden";
                 this._downHighlight.style.visibility = "hidden";
+            }
+            if (this.hasSelection()) {
+                var selection = this.getSelection();
+                this._selectionFill.setAttribute("x", "" + (1 + this._barWidth * selection.barStart));
+                this._selectionFill.setAttribute("y", "" + (1 + this._channelHeight * selection.channelStart));
+                this._selectionFill.setAttribute("width", "" + (this._barWidth * (selection.barEnd - selection.barStart + 1) - 2));
+                this._selectionFill.setAttribute("height", "" + (this._channelHeight * (selection.channelEnd - selection.channelStart + 1) - 2));
+                this._selectionFill.style.visibility = "visible";
+                this._selectionHighlight.setAttribute("x", "" + (1 + this._barWidth * selection.barStart));
+                this._selectionHighlight.setAttribute("y", "" + (1 + this._channelHeight * selection.channelStart));
+                this._selectionHighlight.setAttribute("width", "" + (this._barWidth * (selection.barEnd - selection.barStart + 1) - 2));
+                this._selectionHighlight.setAttribute("height", "" + (this._channelHeight * (selection.channelEnd - selection.channelStart + 1) - 2));
+                this._selectionHighlight.style.visibility = "visible";
+            }
+            else {
+                this._selectionFill.style.visibility = "hidden";
+                this._selectionHighlight.style.visibility = "hidden";
             }
             this._select.style.left = (this._barWidth * this._doc.bar) + "px";
             this._select.style.top = (this._channelHeight * this._doc.channel) + "px";
@@ -6512,14 +6945,15 @@ var beepbox;
                     var pattern = this._doc.song.getPattern(j, i);
 					var patternmute = this._doc.song.getPatternInstrumentMute(j, i);
 					var patternvolume = this._doc.song.getPatternInstrumentVolume(j, i);
-                    var selected = (i == this._doc.bar && j == this._doc.channel);
+                    var selected = this.isSelected(i, j);
+                    var multiSelected = this.isMultiSelected(i, j);
 					var selectedchannel = (j == this._doc.channel);
                     var dim = (pattern == null || pattern.notes.length == 0);
 					var mute = (patternmute == 1);
 					var volume = patternvolume;
                     var box = this._grid[j][i];
                     if (i < this._doc.song.barCount) {
-                        box.setIndex(this._doc.song.channels[j].bars[i], dim, selected, j, dim && !selected && !mute ? this._doc.song.getChannelColorDim(j) : mute && !selected ? "#161616" : this._doc.song.getChannelColorBright(j), volume, dim && !selected && !mute ? this._doc.song.getChannelColorDim(j) : mute && !selected ? "#9b9b9b" : this._doc.song.getChannelColorDim(j), selectedchannel, this._doc.showVolumeBar, this._doc.song.mix);
+                        box.setIndex(this._doc.song.channels[j].bars[i], dim, selected, multiSelected, j, dim && !selected && !mute ? this._doc.song.getChannelColorDim(j) : mute && !selected ? "#161616" : this._doc.song.getChannelColorBright(j), volume, dim && !selected && !mute ? this._doc.song.getChannelColorDim(j) : mute && !selected ? "#9b9b9b" : this._doc.song.getChannelColorDim(j), selectedchannel, this._doc.showVolumeBar, this._doc.song.mix);
                         box.container.style.visibility = "visible";
                     }
                     else {
@@ -8632,6 +9066,7 @@ var beepbox;
             };
             input.addEventListener("input", this._whenInput);
             input.addEventListener("change", this._whenChange);
+            this.container = span({ style: "display: flex; flex: 1 1 auto; min-width: 0; overflow: hidden; align-items: center;" }, [this.input]);
         }
         Slider.prototype.updateValue = function (value) {
             this._value = value;
@@ -8733,9 +9168,10 @@ var beepbox;
 			this._mixSelectRow = div({ className: "selectRow" }, [this._mixHint, this._mixSelect]);
             this._chipHint = beepbox.html.element("a", { className: "hintButton" }, [text("?")]);
 			this._instrumentTypeHint = beepbox.html.element("a", { className: "hintButton" }, [text("?")]);
-            this._keySelect = buildOptions(select({}), beepbox.Config.keyNames);
+			this._keySelect = buildOptions(select({}), beepbox.Config.keyNames);
 			this._themeSelect = buildOptions(select({}), beepbox.Config.themeNames);
-            this._tempoSlider = new Slider(input({ style: "margin: 0px;", type: "range", min: "0", max: beepbox.Config.tempoSteps - 1, value: "7", step: "1" }), this._doc, function (oldValue, newValue) { return new beepbox.ChangeTempo(_this._doc, oldValue, newValue); });
+            this._tempoSlider = new Slider(input({ style: "margin: 0; width: 0; flex-grow: 1; min-width: 0; vertical-align: middle; color: #fff; accent-color: #fff;", type: "range", min: "0", max: beepbox.Config.tempoSteps - 1, value: "7", step: "1" }), this._doc, function (oldValue, newValue) { return new beepbox.ChangeTempo(_this._doc, oldValue, newValue); });
+			this._tempoStepper = input({ style: "width: 3em; margin-left: 0.4em; vertical-align: middle;", type: "number", step: "1" });
             this._reverbSlider = new Slider(input({ style: "margin: 0px;", type: "range", min: "0", max: beepbox.Config.reverbRange - 1, value: "0", step: "1" }), this._doc, function (oldValue, newValue) { return new beepbox.ChangeReverb(_this._doc, oldValue, newValue); });
 
             this._blendSlider = new Slider(input({ style: "width: 9em; margin: 0px;", type: "range", min: "0", max: beepbox.Config.blendRange - 1, value: "0", step: "1" }), this._doc, function (oldValue, newValue) { return new beepbox.ChangeBlend(_this._doc, oldValue, newValue); });
@@ -8822,7 +9258,7 @@ var beepbox;
             this.mainLayer = div({ className: "beepboxEditor", tabIndex: "0" }, [
             this._editorBox,
             div({ className: "editor-widget-column" }, [
-				div({ style: "text-align: center; color: ; align-items: center;" }, [text("ModBox 3.3.0-B_1"), this._archiveHint]),
+				div({ style: "text-align: center; color: ; align-items: center;" }, [text("ModBox+")]),
                 div({ style: "margin: 5px 0; display: flex; flex-direction: row; align-items: center;" }, [
                     this._playButton,
                     div({ style: "width: 1px; height: 10px;" }),
@@ -8853,10 +9289,10 @@ var beepbox;
                 div({ className: "editor-settings" }, [
                     div({ className: "editor-song-settings" }, [
                     div({ style: "margin: 3px 0; text-align: center; color: #999;" }, [text("Song Settings")]),
-					div({ className: "selectRow" }, [span({}, [text("Theme: ")]),div({ className: "selectContainer", style: "margin: 3px 0; text-align: center; color: #ccc"  }, [this._themeSelect]),]),
+                    div({ className: "selectRow" }, [span({}, [text("Theme: ")]),div({ className: "selectContainer", style: "margin: 3px 0; text-align: center; color: #ccc"  }, [this._themeSelect]),]),
 					div({ className: "selectRow" }, [span({}, [text("Scale: ")]),div({ className: "selectContainer", style: "margin: 3px 0; text-align: center; color: #ccc" }, [this._scaleSelect]),]),
                     div({ className: "selectRow" }, [span({}, [text("Key: ")]),div({ className: "selectContainer", style: "margin: 3px 0; text-align: center; color: #ccc"  }, [this._keySelect]),]),
-                    div({ className: "selectRow" }, [span({}, [text("Tempo: ")]),this._tempoSlider.input,]),
+                    div({ className: "selectRow" }, [span({}, [text("Tempo: ")]), span({ style: "display: flex; width: 60%; min-width: 0; align-items: center; overflow: hidden;" }, [this._tempoSlider.container, this._tempoStepper]),]),
                     div({ className: "selectRow" }, [span({}, [text("Reverb: ")]),this._reverbSlider.input,]),
                     div({ className: "selectRow" }, [span({}, [text("Rhythm: ")]),div({ className: "selectContainer", style: "margin: 3px 0; text-align: center; color: #ccc"  }, [this._partSelect]),]),
                     ]),
@@ -8941,6 +9377,7 @@ var beepbox;
                 setSelectedIndex(_this._keySelect, _this._doc.song.key);
                 _this._tempoSlider.updateValue(_this._doc.song.tempo);
                 _this._tempoSlider.input.title = _this._doc.song.getBeatsPerMinute() + " beats per minute";
+				_this._tempoStepper.value = _this._doc.song.getBeatsPerMinute().toString();
                 _this._reverbSlider.updateValue(_this._doc.song.reverb);
 				_this._advancedSettingsContainer.style.display = _this._doc.advancedSettings ? "" : "none";
                 _this._blendSlider.updateValue(_this._doc.song.blend);
@@ -9152,6 +9589,9 @@ var beepbox;
 					this.whenUpdated();
                 }
 			};
+            this._soloSelectedChannel = function () {
+                _this._doc.record(new beepbox.ChangeSoloChannel(_this._doc, _this._doc.channel));
+            };
             this._whenKeyPressed = function (event) {
                 if (_this.prompt) {
                     if (event.keyCode == 27) {
@@ -9163,6 +9603,10 @@ var beepbox;
                 switch (event.keyCode) {
                     case 77:
                         _this._muteInstrument();
+                        event.preventDefault();
+                        break;
+                    case 83:
+                        _this._soloSelectedChannel();
                         event.preventDefault();
                         break;
 					case 32:
@@ -9180,6 +9624,14 @@ var beepbox;
                         break;
                     case 89:
                         _this._doc.redo();
+                        event.preventDefault();
+                        break;
+                    case 13:
+                        _this._doc.record(new beepbox.ChangeInsertBar(_this._doc, _this._doc.bar));
+                        event.preventDefault();
+                        break;
+                    case 8:
+                        _this._doc.record(new beepbox.ChangeDeleteBar(_this._doc, _this._doc.bar));
                         event.preventDefault();
                         break;
                     case 88:
@@ -9210,12 +9662,12 @@ var beepbox;
                         break;
                     case 189:
                     case 173:
-                        _this._transpose(false);
+                        _this._transpose(false, event.shiftKey);
                         event.preventDefault();
                         break;
                     case 187:
                     case 61:
-                        _this._transpose(true);
+                        _this._transpose(true, event.shiftKey);
                         event.preventDefault();
                         break;
 					case 81:
@@ -9299,6 +9751,25 @@ var beepbox;
 					_this._openPrompt("refresh key");
 					}
 			};
+			this._whenSetTempo = function () {
+				var bpm = parseInt(_this._tempoStepper.value) | 0;
+				if (!isFinite(bpm))
+					return;
+				var maxStep = beepbox.Config.tempoSteps - 1;
+				var approxStep = Math.round(9.0 * (Math.log(bpm / 120.0) / Math.LN2) + 4.0);
+				approxStep = Math.max(0, Math.min(maxStep, approxStep));
+				var bestStep = approxStep;
+				var bestDiff = Number.POSITIVE_INFINITY;
+				for (var step = Math.max(0, approxStep - 2); step <= Math.min(maxStep, approxStep + 2); step++) {
+					var stepBpm = Math.round(120.0 * Math.pow(2.0, (-4.0 + step) / 9.0));
+					var diff = Math.abs(stepBpm - bpm);
+					if (diff < bestDiff) {
+						bestDiff = diff;
+						bestStep = step;
+					}
+				}
+				_this._doc.record(new beepbox.ChangeTempo(_this._doc, _this._doc.song.tempo, bestStep));
+			};
             this._whenSetPartsPerBeat = function () {
                 _this._doc.record(new beepbox.ChangePartsPerBeat(_this._doc, beepbox.Config.partCounts[_this._partSelect.selectedIndex]));
             };
@@ -9372,10 +9843,10 @@ var beepbox;
                         _this._paste();
                         break;
                     case "transposeUp":
-                        _this._transpose(true);
+                        _this._transpose(true, false);
                         break;
                     case "transposeDown":
-                        _this._transpose(false);
+                        _this._transpose(false, false);
                         break;
                     case "import":
                         _this._openPrompt("import");
@@ -9468,6 +9939,8 @@ var beepbox;
 			this._mixSelect.addEventListener("change", this._whenSetMix);
 			this._sampleRateSelect.addEventListener("change", this._whenSetSampleRate);
             this._keySelect.addEventListener("change", this._whenSetKey);
+			this._tempoStepper.addEventListener("change", this._whenSetTempo);
+			this._tempoStepper.addEventListener("keydown", function (event) { event.stopPropagation(); }, false);
             this._partSelect.addEventListener("change", this._whenSetPartsPerBeat);
             this._instrumentTypeSelect.addEventListener("change", this._whenSetInstrumentType);
 			this._algorithmSelect.addEventListener("change", this._whenSetAlgorithm);
@@ -9601,6 +10074,18 @@ var beepbox;
             this.updatePlayButton();
         };
         SongEditor.prototype._cut = function () {
+            if (this._trackEditor.hasSelection()) {
+                this._copy();
+                var selection = this._trackEditor.getSelection();
+                var group_1 = new beepbox.ChangeGroup();
+                for (var channelIndex = selection.channelStart; channelIndex <= selection.channelEnd; channelIndex++) {
+                    for (var bar = selection.barStart; bar <= selection.barEnd; bar++) {
+                        group_1.append(new beepbox.ChangeBarPattern(this._doc, channelIndex, bar, 0));
+                    }
+                }
+                this._doc.record(group_1);
+                return;
+            }
             var pattern = this._doc.getCurrentPattern();
             var patternCut = {
                 notes: [],
@@ -9620,6 +10105,34 @@ var beepbox;
             }
         };
         SongEditor.prototype._copy = function () {
+            if (this._trackEditor.hasSelection()) {
+                var selection = this._trackEditor.getSelection();
+                var channelCopies = [];
+                for (var channelIndex = selection.channelStart; channelIndex <= selection.channelEnd; channelIndex++) {
+                    var copiedBars = [];
+                    var copiedPatterns = {};
+                    for (var bar = selection.barStart; bar <= selection.barEnd; bar++) {
+                        var patternIndex = this._doc.song.channels[channelIndex].bars[bar];
+                        copiedBars.push(patternIndex);
+                        if (patternIndex > 0 && copiedPatterns[String(patternIndex)] == undefined) {
+                            var pattern_1 = this._doc.song.channels[channelIndex].patterns[patternIndex - 1];
+                            copiedPatterns[String(patternIndex)] = {
+                                notes: beepbox.cloneNoteArray(pattern_1.notes),
+                                instrument: pattern_1.instrument,
+                            };
+                        }
+                    }
+                    channelCopies.push({
+                        isDrum: this._doc.song.getChannelIsDrum(channelIndex),
+                        bars: copiedBars,
+                        patterns: copiedPatterns,
+                    });
+                }
+                window.localStorage.setItem("trackSelectionCopy", JSON.stringify({ channels: channelCopies }));
+                window.localStorage.removeItem("patternCopy");
+                return;
+            }
+            window.localStorage.removeItem("trackSelectionCopy");
             var pattern = this._doc.getCurrentPattern();
             if (pattern == null)
                 return;
@@ -9632,6 +10145,51 @@ var beepbox;
             window.localStorage.setItem("patternCopy", JSON.stringify(patternCopy));
         };
         SongEditor.prototype._paste = function () {
+            var trackSelectionCopy = JSON.parse(String(window.localStorage.getItem("trackSelectionCopy")));
+            if (trackSelectionCopy != null) {
+                var channelCopies = trackSelectionCopy.channels || [];
+                if (channelCopies.length > 0) {
+                    var anchor = this._trackEditor.hasSelection() ? this._trackEditor.getSelection() : {
+                        barStart: this._doc.bar,
+                        barEnd: this._doc.bar,
+                        channelStart: this._doc.channel,
+                        channelEnd: this._doc.channel,
+                    };
+                    var group_2 = new beepbox.ChangeGroup();
+                    for (var pasteChannel = 0; pasteChannel < channelCopies.length; pasteChannel++) {
+                        var channelCopy = channelCopies[pasteChannel];
+                        var channelIndex = anchor.channelStart + pasteChannel;
+                        if (channelIndex >= this._doc.song.getChannelCount())
+                            break;
+                        if (!!channelCopy.isDrum != this._doc.song.getChannelIsDrum(channelIndex))
+                            continue;
+                        var patternCopies = channelCopy.patterns || {};
+                        var copiedBars = channelCopy.bars || [];
+                        for (var pasteBar = 0; pasteBar < copiedBars.length; pasteBar++) {
+                            var bar = anchor.barStart + pasteBar;
+                            if (bar >= this._doc.song.barCount)
+                                break;
+                            var copiedPatternIndex = copiedBars[pasteBar] >>> 0;
+                            if (copiedPatternIndex == 0) {
+                                group_2.append(new beepbox.ChangeBarPattern(this._doc, channelIndex, bar, 0));
+                                continue;
+                            }
+                            var mappedPatternIndex = copiedPatternIndex;
+                            if (mappedPatternIndex > this._doc.song.patternsPerChannel) {
+                                group_2.append(new beepbox.ChangePatternsPerChannel(this._doc, mappedPatternIndex));
+                            }
+                            var targetPattern = this._doc.song.channels[channelIndex].patterns[mappedPatternIndex - 1];
+                            var patternCopy_1 = patternCopies[String(copiedPatternIndex)];
+                            if (patternCopy_1 != null) {
+                                group_2.append(new beepbox.ChangePatternContents(this._doc, targetPattern, patternCopy_1.notes || [], patternCopy_1.instrument || 0));
+                            }
+                            group_2.append(new beepbox.ChangeBarPattern(this._doc, channelIndex, bar, mappedPatternIndex));
+                        }
+                    }
+                    this._doc.record(group_2);
+                    return;
+                }
+            }
             var pattern = this._doc.getCurrentPattern();
             if (pattern == null)
                 return;
@@ -9640,12 +10198,13 @@ var beepbox;
                 this._doc.record(new beepbox.ChangePaste(this._doc, pattern, patternCopy.notes, patternCopy.beatsPerBar, patternCopy.partsPerBeat));
             }
         };
-        SongEditor.prototype._transpose = function (upward) {
+        SongEditor.prototype._transpose = function (upward, octave) {
+            if (octave === void 0) { octave = false; }
             var pattern = this._doc.getCurrentPattern();
             if (pattern == null)
                 return;
             var canReplaceLastChange = this._doc.lastChangeWas(this._changeTranspose);
-            this._changeTranspose = new beepbox.ChangeTranspose(this._doc, pattern, upward);
+            this._changeTranspose = new beepbox.ChangeTranspose(this._doc, pattern, upward, octave);
             this._doc.record(this._changeTranspose, canReplaceLastChange);
         };
         return SongEditor;
