@@ -2645,11 +2645,37 @@ Config.operatorCarrierChorus = [
             this.delayFeedback1Right = 0.0;
             this.delayFeedback2Right = 0.0;
             this.delayFeedback3Right = 0.0;
+            this._resampBufLeft = null;
+            this._resampBufRight = null;
+            this._resampPhase = 0;
             this.audioProcessCallback = function (audioProcessingEvent) {
                 var outputBuffer = audioProcessingEvent.outputBuffer;
-                var dataLeft = outputBuffer.getChannelData(0);
-                var dataRight = outputBuffer.getChannelData(1);
-				_this.synthesize(dataLeft, dataRight, outputBuffer.length);
+                var outLeft = outputBuffer.getChannelData(0);
+                var outRight = outputBuffer.getChannelData(1);
+                var outLen = outputBuffer.length;
+                var deviceRate = _this.audioCtx.sampleRate;
+                var synthRate = _this.samplesPerSecond;
+                if (synthRate === deviceRate) {
+                    _this.synthesize(outLeft, outRight, outLen);
+                    return;
+                }
+                var ratio = synthRate / deviceRate;
+                var phase = _this._resampPhase;
+                var synthLen = Math.ceil(phase + outLen * ratio) + 1;
+                if (!_this._resampBufLeft || _this._resampBufLeft.length < synthLen) {
+                    _this._resampBufLeft = new Float32Array(synthLen);
+                    _this._resampBufRight = new Float32Array(synthLen);
+                }
+                _this.synthesize(_this._resampBufLeft, _this._resampBufRight, synthLen);
+                for (var i = 0; i < outLen; i++) {
+                    var srcPos = phase + i * ratio;
+                    var srcIdx = srcPos | 0;
+                    var frac = srcPos - srcIdx;
+                    var nextIdx = srcIdx + 1 < synthLen ? srcIdx + 1 : srcIdx;
+                    outLeft[i] = _this._resampBufLeft[srcIdx] + (_this._resampBufLeft[nextIdx] - _this._resampBufLeft[srcIdx]) * frac;
+                    outRight[i] = _this._resampBufRight[srcIdx] + (_this._resampBufRight[nextIdx] - _this._resampBufRight[srcIdx]) * frac;
+                }
+                _this._resampPhase = (phase + outLen * ratio) % 1;
             };
             if (song != null)
                 this.setSong(song);
@@ -2749,44 +2775,60 @@ Config.operatorCarrierChorus = [
         };
 		Synth.prototype.spsCalc = function () {
 			Synth.warmUpSynthesizer(this.song);
-			if (this.song.sampleRate == 0)
-				return 44100;
-			else if (this.song.sampleRate == 1)
-				return 48000;
-			else if (this.song.sampleRate == 2)
-				return this.audioCtx.sampleRate;
-			else if (this.song.sampleRate == 3)
-				return this.audioCtx.sampleRate*4;
-			else if (this.song.sampleRate == 4)
-				return this.audioCtx.sampleRate*2;
-			else if (this.song.sampleRate == 5)
-				return this.audioCtx.sampleRate/2;
-			else if (this.song.sampleRate == 6)
-				return this.audioCtx.sampleRate/4;
-			else if (this.song.sampleRate == 7)
-				return this.audioCtx.sampleRate/8;
-			else if (this.song.sampleRate == 8)
-				return this.audioCtx.sampleRate/16;
-			else
-				return this.audioCtx.sampleRate;
+			if (!Synth._deviceRate) {
+				var contextClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+				var tmp = new contextClass();
+				Synth._deviceRate = tmp.sampleRate;
+				if (tmp.close) tmp.close();
+			}
+			var ctxRate = Synth._deviceRate;
+			if (this.song.sampleRate == 0) return 44100;
+			else if (this.song.sampleRate == 1) return 48000;
+			else if (this.song.sampleRate == 2) return ctxRate;
+			else if (this.song.sampleRate == 3) return ctxRate*4;
+			else if (this.song.sampleRate == 4) return ctxRate*2;
+			else if (this.song.sampleRate == 5) return ctxRate/2;
+			else if (this.song.sampleRate == 6) return ctxRate/4;
+			else if (this.song.sampleRate == 7) return ctxRate/8;
+			else if (this.song.sampleRate == 8) return ctxRate/16;
+			else return ctxRate;
 		}
+		Synth._deviceRate = null;
+		Synth._makeAudioCtx = function (synthRate) {
+			var contextClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+			if (synthRate >= 8000 && synthRate <= 96000) {
+				try { return new contextClass({ sampleRate: synthRate }); } catch(e) {}
+			}
+			return new contextClass();
+		};
+		Synth._startAudioGraph = function (synth) {
+			var synthRate = synth.spsCalc();
+			synth.audioCtx = Synth._makeAudioCtx(synthRate);
+			synth.scriptNode = synth.audioCtx.createScriptProcessor ? synth.audioCtx.createScriptProcessor(2048, 0, 2) : synth.audioCtx.createJavaScriptNode(2048, 0, 2);
+			synth.scriptNode.onaudioprocess = synth.audioProcessCallback;
+			synth.scriptNode.connect(synth.audioCtx.destination);
+			synth.scriptNode.channelCountMode = 'explicit';
+			synth.scriptNode.channelInterpretation = 'speakers';
+			synth.samplesPerSecond = synthRate;
+			synth.effectAngle = Math.PI * 2.0 / (synth.effectDuration * synthRate);
+			synth.effectYMult = 2.0 * Math.cos(synth.effectAngle);
+			synth.limitDecay = 1.0 / (2.0 * synthRate);
+		};
         Synth.prototype.play = function () {
-            if (!this.paused)
-                return;
+            if (!this.paused) return;
             this.paused = false;
             Synth.warmUpSynthesizer(this.song);
-            var contextClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
-            this.audioCtx = this.audioCtx || new contextClass();
-			this.scriptNode = this.audioCtx.createScriptProcessor ? this.audioCtx.createScriptProcessor(2048, 0, 2) : this.audioCtx.createJavaScriptNode(2048, 0, 2);
-            this.scriptNode.onaudioprocess = this.audioProcessCallback;
-            this.scriptNode.connect(this.audioCtx.destination);
-            this.scriptNode.channelCountMode = 'explicit';
-            this.scriptNode.channelInterpretation = 'speakers';
-			this.samplesPerSecond = this.spsCalc()
-            this.effectAngle = Math.PI * 2.0 / (this.effectDuration * this.samplesPerSecond);
-            this.effectYMult = 2.0 * Math.cos(this.effectAngle);
-            this.limitDecay = 1.0 / (2.0 * this.samplesPerSecond);
+			Synth._startAudioGraph(this);
         };
+		Synth.prototype.restartAudio = function () {
+			if (this.paused) return;
+			if (this.scriptNode) this.scriptNode.disconnect();
+			if (this.audioCtx && this.audioCtx.close) this.audioCtx.close();
+			this.audioCtx = null;
+			this.scriptNode = null;
+			this._resampPhase = 0;
+			Synth._startAudioGraph(this);
+		};
         Synth.prototype.pause = function () {
             if (this.paused)
                 return;

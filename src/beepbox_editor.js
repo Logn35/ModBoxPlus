@@ -1568,6 +1568,9 @@ var beepbox;
             var _this = _super.call(this) || this;
             if (doc.song.sampleRate != newValue) {
                 doc.song.sampleRate = newValue;
+                if (!doc.synth.paused) {
+                    doc.synth.restartAudio();
+                }
                 doc.notifier.changed();
                 _this._didSomething();
             }
@@ -4638,6 +4641,32 @@ var beepbox;
                         synth.nextBar();
                     }
                 }
+                var sr = _this._doc.song.sampleRate;
+                var deviceRate;
+                var liveCtx = _this._doc.synth.audioCtx;
+                if (liveCtx) {
+                    deviceRate = liveCtx.sampleRate;
+                } else {
+                    var CtxClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+                    var tmpCtx = new CtxClass();
+                    deviceRate = tmpCtx.sampleRate;
+                    if (tmpCtx.close) tmpCtx.close();
+                }
+                var exportSps;
+                if (sr === 0) exportSps = 44100;
+                else if (sr === 1) exportSps = 48000;
+                else if (sr === 2) exportSps = deviceRate;
+                else if (sr === 3) exportSps = deviceRate * 4;
+                else if (sr === 4) exportSps = deviceRate * 2;
+                else if (sr === 5) exportSps = deviceRate / 2;
+                else if (sr === 6) exportSps = deviceRate / 4;
+                else if (sr === 7) exportSps = deviceRate / 8;
+                else if (sr === 8) exportSps = deviceRate / 16;
+                else exportSps = deviceRate;
+                synth.samplesPerSecond = exportSps;
+                synth.effectAngle = Math.PI * 2.0 / (synth.effectDuration * exportSps);
+                synth.effectYMult = 2.0 * Math.cos(synth.effectAngle);
+                synth.limitDecay = 1.0 / (2.0 * exportSps);
                 var sampleFrames = synth.totalSamples;
 				var sampleFramesRight = synth.totalSamples;
                 var recordedSamplesLeft = new Float32Array(sampleFrames);
@@ -5680,7 +5709,7 @@ var beepbox;
             ]);
             this._scaleSelect = buildOptions(select({}), beepbox.Config.scaleNames);
 			this._mixSelect = buildOptions(select({}), beepbox.Config.mixDisplayNames);
-			this._sampleRateSelect = buildOptions(select({}), beepbox.Config.sampleRateDisplayNames);
+			this._sampleRateSelect = buildOptions(select({}), beepbox.Config.sampleRateNames);
 			this._mixHint = beepbox.html.element("a", { className: "hintButton", style: "color: #8a5cff;" }, [text("?")]);
 			this._archiveHint = beepbox.html.element("a", { className: "hintButton" }, [text("?")]);
 			this._mixSelectRow = div({ className: "selectRow" }, [this._mixHint, this._mixSelect]);
