@@ -993,21 +993,22 @@ var beepbox;
             var alreadySoloed = true;
             for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
                 var shouldBeMuted = channel != soloChannel;
+                for (var instrument = 0; instrument < doc.song.channels[channel].instruments.length; instrument++) {
+                    if (doc.song.channels[channel].instruments[instrument].muteState != (shouldBeMuted ? 1 : 0)) {
+                        alreadySoloed = false;
+                    }
+                }
+            }
+            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
+                var shouldBeMuted = channel != soloChannel;
                 _this._oldValues[channel] = [];
                 _this._newValues[channel] = [];
                 for (var instrument = 0; instrument < doc.song.channels[channel].instruments.length; instrument++) {
                     var oldValue = doc.song.channels[channel].instruments[instrument].muteState;
-                    if (oldValue != (shouldBeMuted ? 1 : 0)) {
-                        alreadySoloed = false;
-                    }
                     var newValue = alreadySoloed ? 0 : (shouldBeMuted ? 1 : 0);
                     _this._oldValues[channel][instrument] = oldValue;
                     _this._newValues[channel][instrument] = newValue;
-                }
-            }
-            for (var channel = 0; channel < doc.song.getChannelCount(); channel++) {
-                for (var instrument = 0; instrument < doc.song.channels[channel].instruments.length; instrument++) {
-                    if (_this._oldValues[channel][instrument] != _this._newValues[channel][instrument]) {
+                    if (oldValue != newValue) {
                         _this._didSomething();
                     }
                 }
@@ -1569,7 +1570,13 @@ var beepbox;
             if (doc.song.sampleRate != newValue) {
                 doc.song.sampleRate = newValue;
                 if (!doc.synth.paused) {
-                    doc.synth.restartAudio();
+                    doc.synth.samplesPerSecond = doc.synth.spsCalc();
+                    doc.synth.effectAngle = Math.PI * 2.0 / (doc.synth.effectDuration * doc.synth.samplesPerSecond);
+                    doc.synth.effectYMult = 2.0 * Math.cos(doc.synth.effectAngle);
+                    doc.synth.limitDecay = 1.0 / (2.0 * doc.synth.samplesPerSecond);
+                    doc.synth._resampBufLeft = null;
+                    doc.synth._resampBufRight = null;
+                    doc.synth._resampPhase = 0;
                 }
                 doc.notifier.changed();
                 _this._didSomething();
@@ -3279,6 +3286,25 @@ var beepbox;
                     this._nextDigit("9");
                     event.preventDefault();
                     break;
+                case 78: {
+                    var usedPatterns = new Set();
+                    var song = this._doc.song;
+                    var currentChannel = song.channels[this._doc.channel];
+                    for (var b = 0; b < song.barCount; b++) {
+                        var p = currentChannel.bars[b];
+                        if (p > 0) usedPatterns.add(p);
+                    }
+                    var earliest = 0;
+                    for (var i = 1; i <= song.patternsPerChannel; i++) {
+                        if (!usedPatterns.has(i)) {
+                            earliest = i;
+                            break;
+                        }
+                    }
+                    if (earliest > 0) this._setPattern(earliest);
+                    event.preventDefault();
+                    break;
+                }
                 default:
                     this._digits = "";
                     break;
@@ -5380,6 +5406,9 @@ var beepbox;
 				div({ style: "text-align: left; margin: 0.5em 0;" }, [
                     text('Type D Mixing includes slightly quieter drums from Type B, but also includes sharper sounds for regular notes in pitch channels.'),
                 ]),
+				div({ style: "text-align: left; margin: 0.5em 0;" }, [
+                    text('Type E is based off Type A mixing made for ModBox+. It includes much louder FM and Louder chords.'),
+                ]),
                 this._cancelButton,
             ]);
             this._close = function () {
@@ -6099,22 +6128,9 @@ var beepbox;
                 }	
             };
 			this._muteInstrument = function () {
-				var channel = _this._doc.song.channels[_this._doc.channel];
-                var instrument = channel.instruments[_this._doc.getCurrentInstrument()];
-				_this._doc.record(new beepbox.ChangeInstrumentMute(_this._doc, _this._muteButton.selectedIndex));
-				_this._doc.record(new beepbox.ChangeInstrumentMute(_this._doc, _this._muteButtonCompact.selectedIndex));
-                if (instrument.muteState == 1) {
-					instrument.muteState = 0;
-					_this._syncMuteButtons(instrument.muteState);
-                    _this._renderMuteState(false);
-					this.whenUpdated();
-                }
-                else {
-					instrument.muteState = 1;
-					_this._syncMuteButtons(instrument.muteState);
-                    _this._renderMuteState(true);
-					this.whenUpdated();
-                }
+                var instrument = _this._doc.song.channels[_this._doc.channel].instruments[_this._doc.getCurrentInstrument()];
+                var newMuteState = instrument.muteState == 1 ? 0 : 1;
+                _this._doc.record(new beepbox.ChangeInstrumentMute(_this._doc, newMuteState));
 			};
             this._soloSelectedChannel = function () {
                 _this._doc.record(new beepbox.ChangeSoloChannel(_this._doc, _this._doc.channel));
@@ -6153,12 +6169,21 @@ var beepbox;
                         _this._doc.redo();
                         event.preventDefault();
                         break;
-                    case 13:
-                        _this._doc.record(new beepbox.ChangeInsertBar(_this._doc, _this._doc.bar));
+                    case 13: {
+                        var newBar = _this._doc.bar + 1;
+                        _this._doc.record(new beepbox.ChangeInsertBar(_this._doc, newBar));
+                        _this._doc.bar = newBar;
+                        _this._doc.barScrollPos = Math.min(_this._doc.bar, Math.max(_this._doc.bar - (_this._doc.trackVisibleBars - 1), _this._doc.barScrollPos));
+                        _this._doc.notifier.changed();
                         event.preventDefault();
                         break;
+                    }
                     case 8:
-                        _this._doc.record(new beepbox.ChangeDeleteBar(_this._doc, _this._doc.bar));
+                        var deletedBar = _this._doc.bar;
+                        _this._doc.record(new beepbox.ChangeDeleteBar(_this._doc, deletedBar));
+                        _this._doc.bar = Math.max(0, deletedBar - 1);
+                        _this._doc.barScrollPos = Math.min(_this._doc.bar, Math.max(_this._doc.bar - (_this._doc.trackVisibleBars - 1), _this._doc.barScrollPos));
+                        _this._doc.notifier.changed();
                         event.preventDefault();
                         break;
                     case 88:
@@ -6657,6 +6682,7 @@ var beepbox;
                 }
                 window.localStorage.setItem("trackSelectionCopy", JSON.stringify({ channels: channelCopies }));
                 window.localStorage.removeItem("patternCopy");
+                this._trackEditor.clearSelection();
                 return;
             }
             window.localStorage.removeItem("trackSelectionCopy");
