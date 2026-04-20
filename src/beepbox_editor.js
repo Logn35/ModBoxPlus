@@ -3215,7 +3215,7 @@ var beepbox;
 	            var _this = this;
 	            this._doc = _doc;
 	            this._songEditor = _songEditor;
-		            this._layoutScale = (this._doc.layout == "long" || this._doc.layout == "tall") ? 0.9 : 1.0;
+		            this._layoutScale = 1.0;
 	            this._barWidth = 32 * this._layoutScale;
 	            this._boxInset = 1 * this._layoutScale;
 	            this._playheadWidth = Math.max(2, Math.round(4 * this._layoutScale));
@@ -3605,7 +3605,7 @@ var beepbox;
         };
 	        TrackEditor.prototype.render = function () {
 	            this._pattern = this._doc.getCurrentPattern();
-	            var layoutScale = (this._doc.layout == "long" || this._doc.layout == "tall") ? 0.9 : 1.0;
+	            var layoutScale = 1.0;
 	            if (this._layoutScale != layoutScale) {
 	                this._layoutScale = layoutScale;
 	                this._barWidth = 32 * this._layoutScale;
@@ -3706,7 +3706,7 @@ var beepbox;
 	        function LoopEditor(_doc) {
 	            var _this = this;
 	            this._doc = _doc;
-		            this._layoutScale = (this._doc.layout == "long" || this._doc.layout == "tall") ? 0.9 : 1.0;
+		            this._layoutScale = 1.0;
 	            this._barWidth = 32 * this._layoutScale;
 	            this._editorHeight = 20;
 	            this._startMode = 0;
@@ -3937,7 +3937,7 @@ var beepbox;
             }
         };
 	        LoopEditor.prototype._render = function () {
-	            var layoutScale = (this._doc.layout == "long" || this._doc.layout == "tall") ? 0.9 : 1.0;
+	            var layoutScale = 1.0;
 	            if (this._layoutScale != layoutScale) {
 	                this._layoutScale = layoutScale;
 	                this._barWidth = 32 * this._layoutScale;
@@ -4000,7 +4000,7 @@ var beepbox;
 	            this._renderedBarPos = -1;
 	            this._getBarPixels = function () {
 	                // Track editor bar width is 32px normally. In Long layout we scale the track UI down.
-		                return (_this._doc.layout == "long" || _this._doc.layout == "tall") ? 32 * 0.9 : 32;
+		                return 32;
 	            };
 	            this._onScroll = function (event) {
 	                _this._doc.barScrollPos = (_this._trackContainer.scrollLeft / _this._getBarPixels());
@@ -6342,7 +6342,7 @@ var beepbox;
             };
 		            this.whenUpdated = function () {
 		                var trackBounds = _this._trackScrollContainer.getBoundingClientRect();
-			                var barPixels = (_this._doc.layout == "long" || _this._doc.layout == "tall") ? 32 * 0.9 : 32;
+			                var barPixels = 32;
 			                _this._doc.trackVisibleBars = Math.floor((trackBounds.right - trackBounds.left) / barPixels);
 			                if (_this._doc.layout != "long" && _this._doc.layout != "tall") {
 			                    _this._barScrollBar.render();
