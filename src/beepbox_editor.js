@@ -101,13 +101,14 @@ var beepbox;
                 _this._shouldPushState = false;
             };
             this.song = new beepbox.Song(string);
-            this.synth = new beepbox.Synth(this.song);
-            this.autoPlay = localStorage.getItem("autoPlay") == "true";
-            this.autoFollow = localStorage.getItem("autoFollow") == "true";
-            this.showFifth = localStorage.getItem("showFifth") == "true";
-			this.showAdvancedColors = localStorage.getItem("showMore") == "true";
-            this.showLetters = localStorage.getItem("showLetters") == "true";
-            this.showChannels = localStorage.getItem("showChannels") == "true";
+	            this.synth = new beepbox.Synth(this.song);
+	            this.autoPlay = localStorage.getItem("autoPlay") == "true";
+	            this.autoFollow = localStorage.getItem("autoFollow") == "true";
+	            this.enableNotePreview = localStorage.getItem("enableNotePreview") != "false";
+	            this.showFifth = localStorage.getItem("showFifth") == "true";
+				this.showAdvancedColors = localStorage.getItem("showMore") == "true";
+	            this.showLetters = localStorage.getItem("showLetters") == "true";
+	            this.showChannels = localStorage.getItem("showChannels") == "true";
             this.showScrollBar = localStorage.getItem("showScrollBar") == "true";
 			this.showChannelVolume = localStorage.getItem("showVolumeBar") == "true";
 			this.showAdvancedSettings = localStorage.getItem("advancedSettings") == "true" || localStorage.getItem("advancedSettings") == null;
@@ -194,13 +195,14 @@ var beepbox;
         SongDocument.prototype.lastChangeWas = function (change) {
             return change != null && change == this._recentChange;
         };
-        SongDocument.prototype.savePreferences = function () {
-            localStorage.setItem("autoPlay", this.autoPlay ? "true" : "false");
-            localStorage.setItem("autoFollow", this.autoFollow ? "true" : "false");
-            localStorage.setItem("showFifth", this.showFifth ? "true" : "false");
-			localStorage.setItem("showMore", this.showAdvancedColors ? "true" : "false");
-            localStorage.setItem("showLetters", this.showLetters ? "true" : "false");
-            localStorage.setItem("showChannels", this.showChannels ? "true" : "false");
+	        SongDocument.prototype.savePreferences = function () {
+	            localStorage.setItem("autoPlay", this.autoPlay ? "true" : "false");
+	            localStorage.setItem("autoFollow", this.autoFollow ? "true" : "false");
+	            localStorage.setItem("enableNotePreview", this.enableNotePreview ? "true" : "false");
+	            localStorage.setItem("showFifth", this.showFifth ? "true" : "false");
+				localStorage.setItem("showMore", this.showAdvancedColors ? "true" : "false");
+	            localStorage.setItem("showLetters", this.showLetters ? "true" : "false");
+	            localStorage.setItem("showChannels", this.showChannels ? "true" : "false");
             localStorage.setItem("showScrollBar", this.showScrollBar ? "true" : "false");
 			localStorage.setItem("showVolumeBar", this.showChannelVolume ? "true" : "false");
 			localStorage.setItem("advancedSettings", this.showAdvancedSettings ? "true" : "false");
@@ -2235,9 +2237,13 @@ var beepbox;
             this._dragTime = 0;
             this._dragPitch = 0;
             this._dragVolume = 0;
-            this._dragVisible = false;
-            this._dragChange = null;
-            this._cursor = new PatternCursor();
+	            this._dragVisible = false;
+	            this._dragChange = null;
+	            this._placingNewNote = false;
+	            this._placedNoteOnPress = false;
+	            this._newNoteStart = 0;
+	            this._newNotePitch = 0;
+	            this._cursor = new PatternCursor();
             this._pattern = null;
             this._playheadX = 0.0;
             this._octaveOffset = 0;
@@ -2342,57 +2348,80 @@ var beepbox;
                     _this._mouseY = 0;
                 _this._whenCursorMoved();
             };
-            this._whenCursorReleased = function (event) {
-                if (!_this._cursor.valid)
-                    return;
-                var continuousState = _this._doc.lastChangeWas(_this._dragChange);
-                if (_this._mouseDragging && continuousState) {
-                    if (_this._dragChange != null) {
-                        _this._doc.record(_this._dragChange);
-                        _this._dragChange = null;
-                    }
-                }
-                else if (_this._mouseDown && continuousState) {
-                    if (_this._cursor.curNote == null) {
-                        var note = beepbox.makeNote(_this._cursor.pitch, _this._cursor.start, _this._cursor.end, 3, _this._doc.song.getChannelIsDrum(_this._doc.channel));
-                        note.pins = [];
-                        for (var _i = 0, _a = _this._cursor.pins; _i < _a.length; _i++) {
+	            this._whenCursorReleased = function (event) {
+	                if (!_this._cursor.valid)
+	                    return;
+	                var continuousState = _this._doc.lastChangeWas(_this._dragChange);
+	                if (_this._mouseDragging && continuousState) {
+	                    if (_this._dragChange != null) {
+	                        _this._doc.record(_this._dragChange);
+	                        _this._dragChange = null;
+	                    }
+	                }
+	                else if (_this._mouseDown && continuousState) {
+	                    if (_this._placedNoteOnPress) {
+	                        if (_this._dragChange != null) {
+	                            _this._doc.record(_this._dragChange);
+	                            _this._dragChange = null;
+	                        }
+	                    }
+	                    else
+	                    if (_this._cursor.curNote == null) {
+	                        var note = beepbox.makeNote(_this._cursor.pitch, _this._cursor.start, _this._cursor.end, 3, _this._doc.song.getChannelIsDrum(_this._doc.channel));
+	                        note.pins = [];
+	                        for (var _i = 0, _a = _this._cursor.pins; _i < _a.length; _i++) {
                             var oldPin = _a[_i];
                             note.pins.push(beepbox.makeNotePin(0, oldPin.time, oldPin.volume));
                         }
-                        var sequence = new beepbox.ChangeSequence();
-                        var pattern = _this._ensurePatternExists(sequence);
-                        if (pattern != null) {
-                            sequence.append(new beepbox.ChangeNoteAdded(_this._doc, pattern, note, _this._cursor.curIndex));
-                            _this._doc.record(sequence);
-                            _this._pattern = pattern;
-                        }
-                    }
-                    else {
-                        if (_this._cursor.pitchIndex == -1) {
+	                        var sequence = new beepbox.ChangeSequence();
+	                        var pattern = _this._ensurePatternExists(sequence);
+	                        if (pattern != null) {
+	                            sequence.append(new beepbox.ChangeNoteAdded(_this._doc, pattern, note, _this._cursor.curIndex));
+			                            _this._doc.record(sequence);
+			                            if (_this._doc.enableNotePreview && !_this._doc.synth.playing) {
+			                                var previewParts = Math.min(_this._doc.song.partsPerBeat, note.end - note.start);
+			                                _this._doc.synth.previewAddedNotes(_this._doc.channel, note.pitches, previewParts);
+			                            }
+			                            _this._pattern = pattern;
+			                        }
+	                    }
+	                    else {
+	                        if (_this._cursor.pitchIndex == -1) {
                             var sequence = new beepbox.ChangeSequence();
-                            if (_this._cursor.curNote.pitches.length == 4) {
-                                sequence.append(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.curNote.pitches[0], 0, true));
-                            }
-                            sequence.append(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.pitch, _this._cursor.curNote.pitches.length));
-                            _this._doc.record(sequence);
-                            _this._copyPins(_this._cursor.curNote);
-                        }
-                        else {
-                            if (_this._cursor.curNote.pitches.length == 1) {
-                                _this._doc.record(new beepbox.ChangeNoteAdded(_this._doc, _this._pattern, _this._cursor.curNote, _this._cursor.curIndex, true));
-                            }
-                            else {
-                                _this._doc.record(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.pitch, _this._cursor.curNote.pitches.indexOf(_this._cursor.pitch), true));
-                            }
-                        }
-                    }
-                }
-                _this._mouseDown = false;
-                _this._mouseDragging = false;
-                _this._updateCursorStatus();
-                _this._updatePreview();
-            };
+	                            if (_this._cursor.curNote.pitches.length == 4) {
+	                                sequence.append(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.curNote.pitches[0], 0, true));
+	                            }
+		                            sequence.append(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.pitch, _this._cursor.curNote.pitches.length));
+			                            _this._doc.record(sequence);
+			                            if (_this._doc.enableNotePreview && !_this._doc.synth.playing) {
+			                                var previewParts = Math.min(_this._doc.song.partsPerBeat, _this._cursor.curNote.end - _this._cursor.curNote.start);
+			                                _this._doc.synth.previewAddedNotes(_this._doc.channel, _this._cursor.curNote.pitches, previewParts);
+			                            }
+			                            _this._copyPins(_this._cursor.curNote);
+			                        }
+		                        else {
+		                            if (_this._cursor.curNote.pitches.length == 1) {
+		                                if (_this._doc.enableNotePreview && !_this._doc.synth.playing) {
+		                                    _this._doc.synth.stopNotePreview();
+		                                }
+		                                _this._doc.record(new beepbox.ChangeNoteAdded(_this._doc, _this._pattern, _this._cursor.curNote, _this._cursor.curIndex, true));
+		                            }
+		                            else {
+		                                if (_this._doc.enableNotePreview && !_this._doc.synth.playing) {
+		                                    _this._doc.synth.stopNotePreview();
+		                                }
+		                                _this._doc.record(new beepbox.ChangePitchAdded(_this._doc, _this._cursor.curNote, _this._cursor.pitch, _this._cursor.curNote.pitches.indexOf(_this._cursor.pitch), true));
+		                            }
+		                        }
+		                    }
+		                }
+	                _this._placingNewNote = false;
+	                _this._placedNoteOnPress = false;
+	                _this._mouseDown = false;
+	                _this._mouseDragging = false;
+	                _this._updateCursorStatus();
+	                _this._updatePreview();
+	            };
             this._documentChanged = function () {
                 _this._editorWidth = _this._doc.showLetters ? (_this._doc.showScrollBar ? 460 : 480) : (_this._doc.showScrollBar ? 492 : 512);
                 var barIndex = _this._doc.bar + _this._barOffset;
@@ -2798,25 +2827,56 @@ var beepbox;
             }
             this._copiedPinChannels[this._doc.channel] = this._copiedPins;
         };
-        PatternEditor.prototype._whenCursorPressed = function () {
-            this._mouseDown = true;
-            this._mouseXStart = this._mouseX;
-            this._mouseYStart = this._mouseY;
-            this._mouseXPrev = this._mouseX;
-            this._mouseYPrev = this._mouseY;
-            this._updateCursorStatus();
-            this._updatePreview();
-            this._dragChange = new beepbox.ChangeSequence();
-            this._doc.setProspectiveChange(this._dragChange);
-        };
-        PatternEditor.prototype._whenCursorMoved = function () {
-            var start;
-            var end;
-            var continuousState = this._doc.lastChangeWas(this._dragChange);
-            if (this._mouseDown && this._cursor.valid && continuousState) {
-                if (!this._mouseDragging) {
-                    var dx = this._mouseX - this._mouseXStart;
-                    var dy = this._mouseY - this._mouseYStart;
+		        PatternEditor.prototype._whenCursorPressed = function () {
+		            this._mouseDown = true;
+		            this._mouseXStart = this._mouseX;
+		            this._mouseYStart = this._mouseY;
+		            this._mouseXPrev = this._mouseX;
+		            this._mouseYPrev = this._mouseY;
+		            this._placingNewNote = false;
+		            this._placedNoteOnPress = false;
+		            if (this._doc.enableNotePreview && !this._doc.synth.playing) {
+		                this._doc.synth.maintainLiveInput();
+		            }
+		            this._updateCursorStatus();
+		            this._updatePreview();
+		            this._dragChange = new beepbox.ChangeSequence();
+		            this._doc.setProspectiveChange(this._dragChange);
+		            if (this._cursor.valid && this._cursor.curNote == null) {
+		                var pattern = this._ensurePatternExists(this._dragChange);
+		                if (pattern != null) {
+		                    this._placingNewNote = true;
+		                    this._placedNoteOnPress = true;
+		                    this._newNoteStart = this._cursor.start;
+		                    this._newNotePitch = this._cursor.pitch;
+		                    this._dragChange.append(new beepbox.ChangeNoteTruncate(this._doc, pattern, this._cursor.start, this._cursor.end));
+		                    var i = void 0;
+		                    for (i = 0; i < pattern.notes.length; i++) {
+		                        if (pattern.notes[i].start >= this._cursor.end)
+		                            break;
+		                    }
+		                    var theNote = beepbox.makeNote(this._cursor.pitch, this._cursor.start, this._cursor.end, 3, this._doc.song.getChannelIsDrum(this._doc.channel));
+			                    this._dragChange.append(new beepbox.ChangeNoteAdded(this._doc, pattern, theNote, i));
+			                    this._copyPins(theNote);
+			                    if (this._doc.enableNotePreview && !this._doc.synth.playing) {
+			                        var previewParts = Math.min(this._doc.song.partsPerBeat, theNote.end - theNote.start);
+			                        this._doc.synth.previewAddedNotes(this._doc.channel, theNote.pitches, previewParts);
+			                    }
+			                    this._pattern = pattern;
+			                }
+			            }
+		        };
+	        PatternEditor.prototype._whenCursorMoved = function () {
+	            var start;
+	            var end;
+	            var continuousState = this._doc.lastChangeWas(this._dragChange);
+	            if (this._mouseDown && this._doc.enableNotePreview && !this._doc.synth.playing) {
+	                this._doc.synth.maintainLiveInput();
+	            }
+	            if (this._mouseDown && this._cursor.valid && continuousState) {
+	                if (!this._mouseDragging) {
+	                    var dx = this._mouseX - this._mouseXStart;
+	                    var dy = this._mouseY - this._mouseYStart;
                     if (Math.sqrt(dx * dx + dy * dy) > 5) {
                         this._mouseDragging = true;
                         this._mouseHorizontal = Math.abs(dx) >= Math.abs(dy);
@@ -2830,23 +2890,24 @@ var beepbox;
                     var sequence = new beepbox.ChangeSequence();
                     this._dragChange = sequence;
                     this._doc.setProspectiveChange(this._dragChange);
-                    if (this._cursor.curNote == null) {
-                        var pattern = this._ensurePatternExists(sequence);
-                        if (pattern == null) {
-                            this._mouseXPrev = this._mouseX;
-                            this._mouseYPrev = this._mouseY;
-                            return;
-                        }
-                        var backwards = void 0;
-                        var directLength = void 0;
-                        if (currentPart < this._cursor.start) {
-                            backwards = true;
-                            directLength = this._cursor.start - currentPart;
-                        }
-                        else {
-                            backwards = false;
-                            directLength = currentPart - this._cursor.start + 1;
-                        }
+	                    if (this._placingNewNote || this._cursor.curNote == null) {
+	                        var pattern = this._ensurePatternExists(sequence);
+	                        if (pattern == null) {
+	                            this._mouseXPrev = this._mouseX;
+	                            this._mouseYPrev = this._mouseY;
+	                            return;
+	                        }
+	                        var anchorStart = this._placingNewNote ? this._newNoteStart : this._cursor.start;
+	                        var backwards = void 0;
+	                        var directLength = void 0;
+	                        if (currentPart < anchorStart) {
+	                            backwards = true;
+	                            directLength = anchorStart - currentPart;
+	                        }
+	                        else {
+	                            backwards = false;
+	                            directLength = currentPart - anchorStart + 1;
+	                        }
                         var defaultLength = 1;
                         for (var i_1 = 0; i_1 <= this._doc.song.beatsPerBar * this._doc.song.partsPerBeat; i_1++) {
                             if (i_1 >= 5 &&
@@ -2871,33 +2932,36 @@ var beepbox;
                                 break;
                             }
                         }
-                        if (backwards) {
-                            end = this._cursor.start;
-                            start = end - defaultLength;
-                        }
-                        else {
-                            start = this._cursor.start;
-                            end = start + defaultLength;
-                        }
+	                        if (backwards) {
+	                            end = anchorStart;
+	                            start = end - defaultLength;
+	                        }
+	                        else {
+	                            start = anchorStart;
+	                            end = start + defaultLength;
+	                        }
                         if (start < 0)
                             start = 0;
                         if (end > this._doc.song.beatsPerBar * this._doc.song.partsPerBeat)
                             end = this._doc.song.beatsPerBar * this._doc.song.partsPerBeat;
                         sequence.append(new beepbox.ChangeNoteTruncate(this._doc, pattern, start, end));
                         var i = void 0;
-                        for (i = 0; i < pattern.notes.length; i++) {
-                            if (pattern.notes[i].start >= end)
-                                break;
-                        }
-                        var theNote = beepbox.makeNote(this._cursor.pitch, start, end, 3, this._doc.song.getChannelIsDrum(this._doc.channel));
-                        sequence.append(new beepbox.ChangeNoteAdded(this._doc, pattern, theNote, i));
-                        this._copyPins(theNote);
-                        this._dragTime = backwards ? start : end;
-                        this._dragPitch = this._cursor.pitch;
-                        this._dragVolume = theNote.pins[backwards ? 0 : 1].volume;
-                        this._dragVisible = true;
-                        this._pattern = pattern;
-                    }
+	                        for (i = 0; i < pattern.notes.length; i++) {
+	                            if (pattern.notes[i].start >= end)
+	                                break;
+	                        }
+	                        var pitch = this._placingNewNote ? this._newNotePitch : this._cursor.pitch;
+		                        var theNote = beepbox.makeNote(pitch, start, end, 3, this._doc.song.getChannelIsDrum(this._doc.channel));
+		                        sequence.append(new beepbox.ChangeNoteAdded(this._doc, pattern, theNote, i));
+		                        this._copyPins(theNote);
+		                        // Preview is triggered on initial placement; avoid re-triggering while dragging/resizing.
+		                        this._dragTime = backwards ? start : end;
+		                        this._dragPitch = pitch;
+		                        this._dragVolume = theNote.pins[backwards ? 0 : 1].volume;
+	                        this._dragVisible = true;
+	                        this._pattern = pattern;
+	                        this._placingNewNote = true;
+	                    }
                     else if (this._mouseHorizontal) {
                         var shift = Math.round((this._mouseX - this._mouseXStart) / this._partWidth);
                         var shiftedPin = this._cursor.curNote.pins[this._cursor.nearPinIndex];
@@ -2906,11 +2970,14 @@ var beepbox;
                             shiftedTime = 0;
                         if (shiftedTime > this._doc.song.beatsPerBar * this._doc.song.partsPerBeat)
                             shiftedTime = this._doc.song.beatsPerBar * this._doc.song.partsPerBeat;
-                        if (shiftedTime <= this._cursor.curNote.start && this._cursor.nearPinIndex == this._cursor.curNote.pins.length - 1 ||
-                            shiftedTime >= this._cursor.curNote.end && this._cursor.nearPinIndex == 0) {
-                            sequence.append(new beepbox.ChangeNoteAdded(this._doc, this._pattern, this._cursor.curNote, this._cursor.curIndex, true));
-                            this._dragVisible = false;
-                        }
+	                        if (shiftedTime <= this._cursor.curNote.start && this._cursor.nearPinIndex == this._cursor.curNote.pins.length - 1 ||
+	                            shiftedTime >= this._cursor.curNote.end && this._cursor.nearPinIndex == 0) {
+	                            if (this._doc.enableNotePreview && !this._doc.synth.playing) {
+	                                this._doc.synth.stopNotePreview();
+	                            }
+	                            sequence.append(new beepbox.ChangeNoteAdded(this._doc, this._pattern, this._cursor.curNote, this._cursor.curIndex, true));
+	                            this._dragVisible = false;
+	                        }
                         else {
                             start = Math.min(this._cursor.curNote.start, shiftedTime);
                             end = Math.max(this._cursor.curNote.end, shiftedTime);
@@ -4483,17 +4550,22 @@ var beepbox;
                 _this._mouseOver = false;
                 _this._updatePreview();
             };
-            this._whenMousePressed = function (event) {
-                event.preventDefault();
-                _this._mouseDown = true;
-                var boundingRect = _this._canvas.getBoundingClientRect();
-                _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
-                _this._mouseY = ((event.clientY || event.pageY) - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
-                if (isNaN(_this._mouseY))
-                    _this._mouseY = 0;
-                _this._doc.synth.pianoPressed = true;
-                _this._updatePreview();
-            };
+	            this._whenMousePressed = function (event) {
+	                event.preventDefault();
+	                _this._mouseDown = true;
+	                var boundingRect = _this._canvas.getBoundingClientRect();
+	                _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
+	                _this._mouseY = ((event.clientY || event.pageY) - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
+	                if (isNaN(_this._mouseY))
+	                    _this._mouseY = 0;
+	                _this._updateCursorPitch();
+	                _this._doc.synth.pianoPitch[0] = _this._cursorPitch + _this._doc.song.channels[_this._doc.channel].octave * 12;
+	                if (!_this._doc.synth.playing) {
+	                    _this._doc.synth.maintainLiveInput();
+	                }
+	                _this._doc.synth.pianoPressed = true;
+	                _this._updatePreview();
+	            };
             this._whenMouseMoved = function (event) {
                 var boundingRect = _this._canvas.getBoundingClientRect();
                 _this._mouseX = (event.clientX || event.pageX) - boundingRect.left;
@@ -4504,23 +4576,28 @@ var beepbox;
                 _this._doc.synth.pianoPitch[0] = _this._cursorPitch + _this._doc.song.channels[_this._doc.channel].octave * 12;
                 _this._updatePreview();
             };
-            this._whenMouseReleased = function (event) {
-                _this._mouseDown = false;
-                _this._doc.synth.pianoPressed = false;
-                _this._updatePreview();
-            };
-            this._whenTouchPressed = function (event) {
-                event.preventDefault();
-                _this._mouseDown = true;
-                var boundingRect = _this._canvas.getBoundingClientRect();
-                _this._mouseX = event.touches[0].clientX - boundingRect.left;
-                _this._mouseY = (event.touches[0].clientY - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
-                if (isNaN(_this._mouseY))
-                    _this._mouseY = 0;
-                _this._updateCursorPitch();
-                _this._doc.synth.pianoPressed = true;
-                _this._doc.synth.pianoPitch[0] = _this._cursorPitch + _this._doc.song.channels[_this._doc.channel].octave * 12;
-            };
+	            this._whenMouseReleased = function (event) {
+	                if (!_this._mouseDown)
+	                    return;
+	                _this._mouseDown = false;
+	                _this._doc.synth.pianoPressed = false;
+	                _this._updatePreview();
+	            };
+	            this._whenTouchPressed = function (event) {
+	                event.preventDefault();
+	                _this._mouseDown = true;
+	                var boundingRect = _this._canvas.getBoundingClientRect();
+	                _this._mouseX = event.touches[0].clientX - boundingRect.left;
+	                _this._mouseY = (event.touches[0].clientY - boundingRect.top) * _this._editorHeight / (boundingRect.bottom - boundingRect.top);
+	                if (isNaN(_this._mouseY))
+	                    _this._mouseY = 0;
+	                _this._updateCursorPitch();
+	                _this._doc.synth.pianoPressed = true;
+	                _this._doc.synth.pianoPitch[0] = _this._cursorPitch + _this._doc.song.channels[_this._doc.channel].octave * 12;
+	                if (!_this._doc.synth.playing) {
+	                    _this._doc.synth.maintainLiveInput();
+	                }
+	            };
             this._whenTouchMoved = function (event) {
                 event.preventDefault();
                 var boundingRect = _this._canvas.getBoundingClientRect();
@@ -4531,10 +4608,12 @@ var beepbox;
                 _this._updateCursorPitch();
                 _this._doc.synth.pianoPitch[0] = _this._cursorPitch + _this._doc.song.channels[_this._doc.channel].octave * 12;
             };
-            this._whenTouchReleased = function (event) {
-                event.preventDefault();
-                _this._doc.synth.pianoPressed = false;
-            };
+	            this._whenTouchReleased = function (event) {
+	                event.preventDefault();
+	                if (!_this._mouseDown)
+	                    return;
+	                _this._doc.synth.pianoPressed = false;
+	            };
 	            this._documentChanged = function () {
 	                var isDrum = _this._doc.song.getChannelIsDrum(_this._doc.channel);
 	                _this._pitchCount = isDrum ? beepbox.Config.drumCount : beepbox.Config.pitchCount;
@@ -6096,15 +6175,16 @@ var beepbox;
                 option("import", "Import JSON", false, false),
 				option("cleanS", "Clean Slate", false, false),
             ]);
-            this._optionsMenu = select({ style: "width: 100%;" }, [
-                option("", ("Preferences Menu"), true, true),
-                option("autoPlay", "Auto Play On Load", false, false),
-                option("autoFollow", "Auto Follow Track", false, false),
-                option("showLetters", "Show Piano", false, false),
-                option("showFifth", "Highlight 'Fifth' Notes", false, false),
-				option("showMore", "Advanced Color Scheme", false, false),
-                option("showChannels", "Show All Channels", false, false),
-                option("showScrollBar", "Octave Scroll Bar", false, false),
+	            this._optionsMenu = select({ style: "width: 100%;" }, [
+	                option("", ("Preferences Menu"), true, true),
+	                option("autoPlay", "Auto Play On Load", false, false),
+	                option("autoFollow", "Auto Follow Track", false, false),
+	                option("enableNotePreview", "Hear Preview of Added Notes", false, false),
+	                option("showLetters", "Show Piano", false, false),
+	                option("showFifth", "Highlight 'Fifth' Notes", false, false),
+					option("showMore", "Advanced Color Scheme", false, false),
+	                option("showChannels", "Show All Channels", false, false),
+	                option("showScrollBar", "Octave Scroll Bar", false, false),
 				option("showVolumeBar", "Show Channel Volume", false, false),
 				option("advancedSettings", "Enable Advanced Settings", false, false),
                 option("layout", "Choose Layout...", false, false),
@@ -6374,13 +6454,14 @@ var beepbox;
 		                        }
 		                    }
 		                }
-		                var optionCommands = [
-	                    (_this._doc.autoPlay ? "✓ " : "✗ ") + "Auto Play On Load",
-	                    (_this._doc.autoFollow ? "✓ " : "✗ ") + "Auto Follow Track",
-	                    (_this._doc.showLetters ? "✓ " : "✗ ") + "Show Piano",
-                    (_this._doc.showFifth ? "✓ " : "✗ ") + "Highlight 'Fifth' Notes",
-					(_this._doc.showAdvancedColors ? "✓ " : "✗ ") + "Advanced Color Scheme",
-                    (_this._doc.showChannels ? "✓ " : "✗ ") + "Show All Channels",
+			                var optionCommands = [
+		                    (_this._doc.autoPlay ? "✓ " : "✗ ") + "Auto Play On Load",
+		                    (_this._doc.autoFollow ? "✓ " : "✗ ") + "Auto Follow Track",
+		                    (_this._doc.enableNotePreview ? "✓ " : "✗ ") + "Hear Preview of Added Notes",
+		                    (_this._doc.showLetters ? "✓ " : "✗ ") + "Show Piano",
+	                    (_this._doc.showFifth ? "✓ " : "✗ ") + "Highlight 'Fifth' Notes",
+						(_this._doc.showAdvancedColors ? "✓ " : "✗ ") + "Advanced Color Scheme",
+	                    (_this._doc.showChannels ? "✓ " : "✗ ") + "Show All Channels",
                     (_this._doc.showScrollBar ? "✓ " : "✗ ") + "Octave Scroll Bar",
 					(_this._doc.showChannelVolume ? "✓ " : "✗ ") + "Show Channel Volume",
 					(_this._doc.showAdvancedSettings ? "✓ " : "✗ ") + "Enable Advanced Settings",
@@ -6916,19 +6997,22 @@ var beepbox;
                 }
                 _this._editMenu.selectedIndex = 0;
             };
-            this._optionsMenuHandler = function (event) {
-                switch (_this._optionsMenu.value) {
-                    case "autoPlay":
-                        _this._doc.autoPlay = !_this._doc.autoPlay;
-                        break;
-                    case "autoFollow":
-                        _this._doc.autoFollow = !_this._doc.autoFollow;
-                        break;
-                    case "showLetters":
-                        _this._doc.showLetters = !_this._doc.showLetters;
-                        break;
-                    case "showFifth":
-                        _this._doc.showFifth = !_this._doc.showFifth;
+	            this._optionsMenuHandler = function (event) {
+	                switch (_this._optionsMenu.value) {
+	                    case "autoPlay":
+	                        _this._doc.autoPlay = !_this._doc.autoPlay;
+	                        break;
+	                    case "autoFollow":
+	                        _this._doc.autoFollow = !_this._doc.autoFollow;
+	                        break;
+	                    case "enableNotePreview":
+	                        _this._doc.enableNotePreview = !_this._doc.enableNotePreview;
+	                        break;
+	                    case "showLetters":
+	                        _this._doc.showLetters = !_this._doc.showLetters;
+	                        break;
+	                    case "showFifth":
+	                        _this._doc.showFifth = !_this._doc.showFifth;
                         break;
 					case "showMore":
                         _this._doc.showAdvancedColors = !_this._doc.showAdvancedColors;

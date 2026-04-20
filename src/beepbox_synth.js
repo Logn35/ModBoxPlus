@@ -1966,76 +1966,96 @@ Config.operatorCarrierChorus = [
                             transition: Config.transitionNames[instrument.transition],
 							octoff: Config.octaveOffsetNames[instrument.octaveOffset],
                             octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
+							ipan: Config.ipanValues[instrument.ipan],
+							pan: Config.ipanValues[instrument.ipan],
                         });
                     }
-                    else {
-                        if (instrument.type == 0) {
-                            instrumentArray.push({
-                                type: Config.instrumentTypeNames[instrument.type],
-                                volume: (5 - instrument.volume) * 20,
-                                wave: Config.waveNames[instrument.wave],
-                                transition: Config.transitionNames[instrument.transition],
-                                filter: Config.filterNames[instrument.filter],
-                                chorus: Config.chorusNames[instrument.chorus],
-                                effect: Config.effectNames[instrument.effect],
-								harm: Config.harmNames[instrument.harm],
-								imute: Config.muteNames[instrument.muteState],
-                                mute: Config.muteNames[instrument.muteState],
-								octoff: Config.octaveOffsetNames[instrument.octaveOffset],
-                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
-                                pan: instrument.pan,
-                                ipan: instrument.pan,
-                            });
-                        }
-                        else if (instrument.type == 1) {
-                            var operatorArray = [];
-                            for (var _i = 0, _a = instrument.operators; _i < _a.length; _i++) {
-                                var operator = _a[_i];
-                                operatorArray.push({
-                                    frequency: Config.operatorFrequencyNames[operator.frequency],
-                                    amplitude: operator.amplitude,
-                                    envelope: Config.operatorEnvelopeNames[operator.envelope],
-                                });
-                            }
-                            instrumentArray.push({
-                                type: Config.instrumentTypeNames[instrument.type],
-								volume: (5 - instrument.volume) * 20,
-                                transition: Config.transitionNames[instrument.transition],
-                                effect: Config.effectNames[instrument.effect],
-								octoff: Config.octaveOffsetNames[instrument.octaveOffset],
-                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
-                                pan: instrument.pan,
-                                ipan: instrument.pan,
-								fmChorus: Config.fmChorusNames[instrument.fmChorus],
-                                algorithm: Config.operatorAlgorithmNames[instrument.algorithm],
-                                feedbackType: Config.operatorFeedbackNames[instrument.feedbackType],
-                                feedbackAmplitude: instrument.feedbackAmplitude,
-                                feedbackEnvelope: Config.operatorEnvelopeNames[instrument.feedbackEnvelope],
-                                operators: operatorArray,
-                            });
-                        }
-                        if (instrument.type == 3) {
-                            instrumentArray.push({
-                                type: Config.instrumentTypeNames[instrument.type],
-                                volume: (5 - instrument.volume) * 20,
-                                wave: Config.pwmWaveNames[instrument.wave],
-                                transition: Config.transitionNames[instrument.transition],
-                                filter: Config.filterNames[instrument.filter],
-                                chorus: Config.chorusNames[instrument.chorus],
-                                effect: Config.effectNames[instrument.effect],
-								harm: Config.harmNames[instrument.harm],
-								imute: Config.muteNames[instrument.muteState],
-                                mute: Config.muteNames[instrument.muteState],
-								octoff: Config.octaveOffsetNames[instrument.octaveOffset],
-                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
-                                pan: instrument.pan,
-                                ipan: instrument.pan,
-                            });
-                        }
-                        else {
-                            throw new Error("Unrecognized instrument type");
-                        }
-                    }
+	                    else {
+	                        if (instrument.type == 0) {
+	                            instrumentArray.push({
+	                                type: Config.instrumentTypeNames[instrument.type],
+	                                volume: (5 - instrument.volume) * 20,
+	                                wave: Config.waveNames[instrument.wave],
+	                                transition: Config.transitionNames[instrument.transition],
+	                                filter: Config.filterNames[instrument.filter],
+	                                chorus: Config.chorusNames[instrument.chorus],
+	                                effect: Config.effectNames[instrument.effect],
+									harm: Config.harmNames[instrument.harm],
+									imute: Config.muteNames[instrument.muteState],
+	                                mute: Config.muteNames[instrument.muteState],
+									octoff: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                pan: Config.ipanValues[instrument.ipan],
+	                                ipan: Config.ipanValues[instrument.ipan],
+	                            });
+	                        }
+	                        else if (instrument.type == 1) {
+	                            var operatorArray = [];
+	                            for (var _i = 0, _a = instrument.operators; _i < _a.length; _i++) {
+	                                var operator = _a[_i];
+	                                operatorArray.push({
+	                                    frequency: Config.operatorFrequencyNames[operator.frequency],
+	                                    amplitude: operator.amplitude,
+	                                    envelope: Config.operatorEnvelopeNames[operator.envelope],
+	                                });
+	                            }
+	                            instrumentArray.push({
+	                                type: Config.instrumentTypeNames[instrument.type],
+									volume: (5 - instrument.volume) * 20,
+	                                transition: Config.transitionNames[instrument.transition],
+	                                effect: Config.effectNames[instrument.effect],
+									octoff: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                pan: Config.ipanValues[instrument.ipan],
+	                                ipan: Config.ipanValues[instrument.ipan],
+									fmChorus: Config.fmChorusNames[instrument.fmChorus],
+	                                algorithm: Config.operatorAlgorithmNames[instrument.algorithm],
+	                                feedbackType: Config.operatorFeedbackNames[instrument.feedbackType],
+	                                feedbackAmplitude: instrument.feedbackAmplitude,
+	                                feedbackEnvelope: Config.operatorEnvelopeNames[instrument.feedbackEnvelope],
+	                                operators: operatorArray,
+	                            });
+	                        }
+	                        else if (instrument.type == 2) {
+	                            instrumentArray.push({
+	                                type: Config.instrumentTypeNames[instrument.type],
+	                                volume: (5 - instrument.volume) * 20,
+	                                wave: Config.pwmWaveNames[instrument.wave],
+	                                transition: Config.transitionNames[instrument.transition],
+	                                filter: Config.filterNames[instrument.filter],
+	                                chorus: Config.chorusNames[instrument.chorus],
+	                                effect: Config.effectNames[instrument.effect],
+									harm: Config.harmNames[instrument.harm],
+									imute: Config.muteNames[instrument.muteState],
+	                                mute: Config.muteNames[instrument.muteState],
+									octoff: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                pan: Config.ipanValues[instrument.ipan],
+	                                ipan: Config.ipanValues[instrument.ipan],
+	                            });
+	                        }
+	                        else if (instrument.type == 3) {
+	                            instrumentArray.push({
+	                                type: Config.instrumentTypeNames[instrument.type],
+	                                volume: (5 - instrument.volume) * 20,
+	                                wave: Config.pwmWaveNames[instrument.wave],
+	                                transition: Config.transitionNames[instrument.transition],
+	                                filter: Config.filterNames[instrument.filter],
+	                                chorus: Config.chorusNames[instrument.chorus],
+	                                effect: Config.effectNames[instrument.effect],
+									harm: Config.harmNames[instrument.harm],
+									imute: Config.muteNames[instrument.muteState],
+	                                mute: Config.muteNames[instrument.muteState],
+									octoff: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                octaveOffset: Config.octaveOffsetNames[instrument.octaveOffset],
+	                                pan: Config.ipanValues[instrument.ipan],
+	                                ipan: Config.ipanValues[instrument.ipan],
+	                            });
+	                        }
+	                        else {
+	                            throw new Error("Unrecognized instrument type");
+	                        }
+	                    }
                 }
                 var patternArray = [];
                 for (var _b = 0, _c = this.channels[channel].patterns; _b < _c.length; _b++) {
@@ -2111,6 +2131,28 @@ Config.operatorCarrierChorus = [
             var version = jsonObject.version;
             if (version > Song._format)
                 return;
+            var parsePanIndex = function (panOrIndex) {
+                if (panOrIndex == undefined)
+                    return undefined;
+                if (typeof panOrIndex !== "number" || !isFinite(panOrIndex))
+                    return undefined;
+                var exactIndex = Config.panValues.indexOf(panOrIndex);
+                if (exactIndex != -1)
+                    return exactIndex;
+                if (Math.floor(panOrIndex) === panOrIndex) {
+                    return Song._clip(0, Config.panValues.length, panOrIndex | 0);
+                }
+                var bestIndex = 0;
+                var bestDiff = Number.POSITIVE_INFINITY;
+                for (var i = 0; i < Config.panValues.length; i++) {
+                    var diff = Math.abs(Config.panValues[i] - panOrIndex);
+                    if (diff < bestDiff) {
+                        bestDiff = diff;
+                        bestIndex = i;
+                    }
+                }
+                return bestIndex;
+            };
             this.scale = 11;
             if (jsonObject.scale != undefined) {
                 var oldScaleNames = { "romani :)": 8, "romani :(": 9 };
@@ -2259,14 +2301,19 @@ Config.operatorCarrierChorus = [
                             instrument.muteState = Config.muteNames.indexOf(muteName);
                             if (instrument.muteState == -1)
                                 instrument.muteState = 0;
-							if (instrumentObject.pan != undefined || instrumentObject.ipan != undefined) {
-								instrument.pan = Song._clip(0, Config.panValues.length, ((instrumentObject.pan != undefined ? instrumentObject.pan : instrumentObject.ipan) | 0));
-								}
+							var panIndex = parsePanIndex(instrumentObject.ipan != undefined ? instrumentObject.ipan : instrumentObject.pan);
+							if (panIndex != undefined) {
+								instrument.pan = panIndex;
+							}
                         }
                         else {
-                            instrument.type = Config.instrumentTypeNames.indexOf(instrumentObject.type);
-                            if (instrument.type == -1)
-                                instrument.type = 0;
+	                            instrument.type = Config.instrumentTypeNames.indexOf(instrumentObject.type);
+	                            if (instrument.type == -1)
+	                                instrument.type = 0;
+	                            // Internally, PWM instruments are type 2. JSON typically uses "PWM", which
+	                            // maps to Config.instrumentTypeNames index 3. Translate that here.
+	                            if (instrument.type == 3)
+	                                instrument.type = 2;
                             if (instrument.type == 0) {
                                 if (instrumentObject.volume != undefined) {
                                     instrument.volume = Song._clip(0, Config.volumeNames.length, Math.round(5 - (instrumentObject.volume | 0) / 20));
@@ -2298,8 +2345,9 @@ Config.operatorCarrierChorus = [
                                 instrument.muteState = Config.muteNames.indexOf(muteName);
                                 if (instrument.muteState == -1)
                                     instrument.muteState = 0;
-								if (instrumentObject.pan != undefined || instrumentObject.ipan != undefined) {
-								instrument.pan = Song._clip(0, Config.panValues.length, ((instrumentObject.pan != undefined ? instrumentObject.pan : instrumentObject.ipan) | 0));
+								var panIndex = parsePanIndex(instrumentObject.ipan != undefined ? instrumentObject.ipan : instrumentObject.pan);
+								if (panIndex != undefined) {
+									instrument.pan = panIndex;
 								}
                             }
                             else if (instrument.type == 1) {
@@ -2348,20 +2396,21 @@ Config.operatorCarrierChorus = [
                                     if (operator.envelope == -1)
                                         operator.envelope = 0;
                                 }
-								if (instrumentObject.pan != undefined || instrumentObject.ipan != undefined) {
-								instrument.pan = Song._clip(0, Config.panValues.length, ((instrumentObject.pan != undefined ? instrumentObject.pan : instrumentObject.ipan) | 0));
+								var panIndex = parsePanIndex(instrumentObject.ipan != undefined ? instrumentObject.ipan : instrumentObject.pan);
+								if (panIndex != undefined) {
+									instrument.pan = panIndex;
 								}
                             }
-                            else if (instrument.type == 3) {
-                                if (instrumentObject.volume != undefined) {
-                                    instrument.volume = Song._clip(0, Config.volumeNames.length, Math.round(5 - (instrumentObject.volume | 0) / 20));
-                                }
-                                else {
-                                    instrument.volume = 0;
-                                }
-                                instrument.wave = Config.pwmWaveNames.indexOf(instrumentObject.wave);
-                                if (instrument.wave == -1)
-                                    instrument.wave = 1;
+	                            else if (instrument.type == 2) {
+	                                if (instrumentObject.volume != undefined) {
+	                                    instrument.volume = Song._clip(0, Config.volumeNames.length, Math.round(5 - (instrumentObject.volume | 0) / 20));
+	                                }
+	                                else {
+	                                    instrument.volume = 0;
+	                                }
+	                                instrument.wave = Config.pwmWaveNames.indexOf(instrumentObject.wave);
+	                                if (instrument.wave == -1)
+	                                    instrument.wave = 1;
                                 var oldFilterNames = { "sustain sharp": 1, "sustain medium": 2, "sustain soft": 3, "decay sharp": 4 };
                                 instrument.filter = oldFilterNames[instrumentObject.filter] != undefined ? oldFilterNames[instrumentObject.filter] : Config.filterNames.indexOf(instrumentObject.filter);
                                 if (instrument.filter == -1)
@@ -2383,8 +2432,9 @@ Config.operatorCarrierChorus = [
                                 instrument.muteState = Config.muteNames.indexOf(muteName);
                                 if (instrument.muteState == -1)
                                     instrument.muteState = 0;
-								if (instrumentObject.pan != undefined || instrumentObject.ipan != undefined) {
-								instrument.pan = Song._clip(0, Config.panValues.length, ((instrumentObject.pan != undefined ? instrumentObject.pan : instrumentObject.ipan) | 0));
+								var panIndex = parsePanIndex(instrumentObject.ipan != undefined ? instrumentObject.ipan : instrumentObject.pan);
+								if (panIndex != undefined) {
+									instrument.pan = panIndex;
 								}
                             }
                             else {
@@ -2605,10 +2655,10 @@ Config.operatorCarrierChorus = [
         };
         return SynthChannel;
     }());
-    var Synth = (function () {
-        function Synth(song) {
-            if (song === void 0) { song = null; }
-            var _this = this;
+	    var Synth = (function () {
+		        function Synth(song) {
+		            if (song === void 0) { song = null; }
+		            var _this = this;
             this.samplesPerSecond = 44100;
             this.effectDuration = 0.14;
             this.effectAngle = Math.PI * 2.0 / (this.effectDuration * this.samplesPerSecond);
@@ -2645,20 +2695,29 @@ Config.operatorCarrierChorus = [
             this.delayFeedback1Right = 0.0;
             this.delayFeedback2Right = 0.0;
             this.delayFeedback3Right = 0.0;
-            this._resampBufLeft = null;
-            this._resampBufRight = null;
-            this._resampPhase = 0;
-            this.audioProcessCallback = function (audioProcessingEvent) {
-                var outputBuffer = audioProcessingEvent.outputBuffer;
-                var outLeft = outputBuffer.getChannelData(0);
-                var outRight = outputBuffer.getChannelData(1);
+	            this._resampBufLeft = null;
+	            this._resampBufRight = null;
+	            this._resampPhase = 0;
+	            this.audioCtx = null;
+	            this.scriptNode = null;
+	            this._scriptNodeConnected = false;
+		            this._liveInputOnly = false;
+		            this._pianoPreviewActive = false;
+		            this._pianoPreviewPitch = [0];
+		            this._pianoPreviewChannel = 0;
+		            this._pianoPreviewSamplesRemaining = 0;
+		            this._pianoPreviewTimeout = null;
+	            this.audioProcessCallback = function (audioProcessingEvent) {
+	                var outputBuffer = audioProcessingEvent.outputBuffer;
+	                var outLeft = outputBuffer.getChannelData(0);
+	                var outRight = outputBuffer.getChannelData(1);
                 var outLen = outputBuffer.length;
                 var deviceRate = _this.audioCtx.sampleRate;
                 var synthRate = _this.samplesPerSecond;
-                if (synthRate === deviceRate) {
-                    _this.synthesize(outLeft, outRight, outLen);
-                    return;
-                }
+	                if (synthRate === deviceRate) {
+	                    _this.synthesizeRealtime(outLeft, outRight, outLen);
+	                    return;
+	                }
                 var ratio = synthRate / deviceRate;
                 var phase = _this._resampPhase;
                 var synthLen = Math.ceil(phase + outLen * ratio) + 1;
@@ -2666,7 +2725,7 @@ Config.operatorCarrierChorus = [
                     _this._resampBufLeft = new Float32Array(synthLen);
                     _this._resampBufRight = new Float32Array(synthLen);
                 }
-                _this.synthesize(_this._resampBufLeft, _this._resampBufRight, synthLen);
+	                _this.synthesizeRealtime(_this._resampBufLeft, _this._resampBufRight, synthLen);
                 for (var i = 0; i < outLen; i++) {
                     var srcPos = phase + i * ratio;
                     var srcIdx = srcPos | 0;
@@ -2795,33 +2854,86 @@ Config.operatorCarrierChorus = [
 			else if (this.song.sampleRate == 8) return ctxRate/16;
 			else return ctxRate;
 		}
-        Synth.prototype.play = function () {
-            if (!this.paused)
-                return;
-            this.paused = false;
-            Synth.warmUpSynthesizer(this.song);
-            var contextClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
-            this.audioCtx = this.audioCtx || new contextClass();
-			this.scriptNode = this.audioCtx.createScriptProcessor ? this.audioCtx.createScriptProcessor(2048, 0, 2) : this.audioCtx.createJavaScriptNode(2048, 0, 2);
-            this.scriptNode.onaudioprocess = this.audioProcessCallback;
-            this.scriptNode.connect(this.audioCtx.destination);
-            this.scriptNode.channelCountMode = 'explicit';
-            this.scriptNode.channelInterpretation = 'speakers';
-			this.samplesPerSecond = this.spsCalc();
-            this.effectAngle = Math.PI * 2.0 / (this.effectDuration * this.samplesPerSecond);
-            this.effectYMult = 2.0 * Math.cos(this.effectAngle);
-            this.limitDecay = 1.0 / (2.0 * this.samplesPerSecond);
-        };
-        Synth.prototype.pause = function () {
-            if (this.paused)
-                return;
-            this.paused = true;
-            if (this.audioCtx.close) {
-                this.audioCtx.close();
-                this.audioCtx = null;
-            }
-            this.scriptNode = null;
-        };
+	        Synth.prototype.play = function () {
+	            if (!this.paused)
+	                return;
+	            this.paused = false;
+	            this._startAudioProcessing();
+	        };
+	        Synth.prototype.pause = function () {
+	            if (this.paused)
+	                return;
+	            this.paused = true;
+	        };
+	        Synth.prototype._startAudioProcessing = function () {
+	            if (this.song == null)
+	                return;
+	            Synth.warmUpSynthesizer(this.song);
+	            var contextClass = (window.AudioContext || window.webkitAudioContext || window.mozAudioContext || window.oAudioContext || window.msAudioContext);
+	            this.audioCtx = this.audioCtx || new contextClass();
+	            if (this.audioCtx.state == "suspended" && this.audioCtx.resume) {
+	                var resumePromise = this.audioCtx.resume();
+	                if (resumePromise && resumePromise.catch)
+	                    resumePromise.catch(function () { });
+	            }
+	            if (this.scriptNode == null) {
+	                this.scriptNode = this.audioCtx.createScriptProcessor ? this.audioCtx.createScriptProcessor(2048, 0, 2) : this.audioCtx.createJavaScriptNode(2048, 0, 2);
+	                this.scriptNode.onaudioprocess = this.audioProcessCallback;
+	                this.scriptNode.channelCountMode = 'explicit';
+	                this.scriptNode.channelInterpretation = 'speakers';
+	            }
+	            if (!this._scriptNodeConnected) {
+	                this.scriptNode.connect(this.audioCtx.destination);
+	                this._scriptNodeConnected = true;
+	            }
+	            this.samplesPerSecond = this.spsCalc();
+	            this.effectAngle = Math.PI * 2.0 / (this.effectDuration * this.samplesPerSecond);
+	            this.effectYMult = 2.0 * Math.cos(this.effectAngle);
+	            this.limitDecay = 1.0 / (2.0 * this.samplesPerSecond);
+	        };
+	        Synth.prototype._stopAudioProcessing = function () {
+	            if (this.scriptNode != null && this._scriptNodeConnected) {
+	                try {
+	                    this.scriptNode.disconnect();
+	                }
+	                catch (e) {
+	                }
+	                this._scriptNodeConnected = false;
+	            }
+	        };
+	        Synth.prototype.maintainLiveInput = function () {
+	            this._startAudioProcessing();
+	        };
+		        Synth.prototype.stopNotePreview = function () {
+		            if (this._pianoPreviewTimeout != null) {
+		                clearTimeout(this._pianoPreviewTimeout);
+		                this._pianoPreviewTimeout = null;
+		            }
+		            if (this._pianoPreviewActive) {
+		                this._pianoPreviewActive = false;
+		                this._pianoPreviewSamplesRemaining = 0;
+		            }
+		        };
+		        Synth.prototype.previewAddedNotes = function (channel, pitches, durationParts) {
+		            if (this.song == null)
+		                return;
+		            if (durationParts === void 0) { durationParts = this.song.partsPerBeat; }
+		            this.stopNotePreview();
+		            this._startAudioProcessing();
+		            this._pianoPreviewChannel = channel;
+		            this._pianoPreviewPitch.length = 0;
+		            for (var i = 0; i < pitches.length; i++) {
+		                this._pianoPreviewPitch[i] = pitches[i];
+		            }
+		            this._pianoPreviewActive = true;
+		            durationParts = Math.max(1, Math.min(durationParts | 0, this.song.beatsPerBar * this.song.partsPerBeat));
+		            var beatsPerMinute = this.song.getBeatsPerMinute();
+		            var secondsPerBeat = 60.0 / beatsPerMinute;
+		            var seconds = (durationParts / this.song.partsPerBeat) * secondsPerBeat;
+	            this._pianoPreviewSamplesRemaining = Math.max(1, Math.floor(seconds * this.samplesPerSecond));
+	            var _this = this;
+	            this._pianoPreviewTimeout = setTimeout(function () { return _this.stopNotePreview(); }, Math.ceil(seconds * 1000) + 20);
+	        };
         Synth.prototype.snapToStart = function () {
             this.bar = 0;
             this.enableIntro = true;
@@ -2891,12 +3003,58 @@ Config.operatorCarrierChorus = [
             }
             this.playheadInternal += this.bar - oldBar;
         };
-        Synth.prototype.synthesize = function (dataLeft, dataRight, bufferLength) {
-            if (this.song == null) {
-                for (var i = 0; i < bufferLength; i++) {
-                    dataLeft[i] = 0.0;
-					dataRight[i] = 0.0;
-                }
+			        Synth.prototype.synthesizeRealtime = function (dataLeft, dataRight, bufferLength) {
+			            if (this.paused) {
+			                if (!this.pianoPressed && !this._pianoPreviewActive) {
+			                    for (var i = 0; i < bufferLength; i++) {
+			                        dataLeft[i] = 0.0;
+			                        dataRight[i] = 0.0;
+		                    }
+		                    return;
+		                }
+	                var savedPlayhead = this.playheadInternal;
+	                var savedBar = this.bar;
+	                var savedBeat = this.beat;
+	                var savedPart = this.part;
+	                var savedArpeggio = this.arpeggio;
+	                var savedCountdown = this.arpeggioSampleCountdown;
+	                var savedEnableIntro = this.enableIntro;
+	                var savedEnableOutro = this.enableOutro;
+	                var savedLoopCount = this.loopCount;
+	                this._liveInputOnly = true;
+		                this.synthesize(dataLeft, dataRight, bufferLength);
+		                this._liveInputOnly = false;
+		                this.playheadInternal = savedPlayhead;
+		                this.bar = savedBar;
+		                this.beat = savedBeat;
+	                this.part = savedPart;
+	                this.arpeggio = savedArpeggio;
+	                this.arpeggioSampleCountdown = savedCountdown;
+		                this.enableIntro = savedEnableIntro;
+		                this.enableOutro = savedEnableOutro;
+		                this.loopCount = savedLoopCount;
+		                if (this._pianoPreviewActive) {
+		                    this._pianoPreviewSamplesRemaining -= bufferLength;
+		                    if (this._pianoPreviewSamplesRemaining <= 0) {
+		                        this.stopNotePreview();
+		                    }
+		                }
+				                return;
+				            }
+			            this.synthesize(dataLeft, dataRight, bufferLength);
+			            if (this._pianoPreviewActive) {
+			                this._pianoPreviewSamplesRemaining -= bufferLength;
+			                if (this._pianoPreviewSamplesRemaining <= 0) {
+			                    this.stopNotePreview();
+			                }
+			            }
+			        };
+		        Synth.prototype.synthesize = function (dataLeft, dataRight, bufferLength) {
+		            if (this.song == null) {
+		                for (var i = 0; i < bufferLength; i++) {
+		                    dataLeft[i] = 0.0;
+							dataRight[i] = 0.0;
+	                }
                 return;
             }
             var channelCount = this.song.getChannelCount();
@@ -2984,8 +3142,8 @@ Config.operatorCarrierChorus = [
                     }
                 }
             }
-            this.playheadInternal = (((this.arpeggio + 1.0 - this.arpeggioSampleCountdown / samplesPerArpeggio) / 4.0 + this.part) / this.song.partsPerBeat + this.beat) / this.song.beatsPerBar + this.bar;
-        };
+	            this.playheadInternal = (((this.arpeggio + 1.0 - this.arpeggioSampleCountdown / samplesPerArpeggio) / 4.0 + this.part) / this.song.partsPerBeat + this.beat) / this.song.beatsPerBar + this.bar;
+	        };
         Synth.computeOperatorEnvelope = function (envelope, time, beats, customVolume) {
             switch (Config.operatorEnvelopeType[envelope]) {
                 case 0: return customVolume;
@@ -3022,16 +3180,22 @@ Config.operatorCarrierChorus = [
                 default: throw new Error("Unrecognized operator envelope type.");
             }
         };
-        Synth.computeChannelInstrument = function (synth, song, channel, time, sampleTime, samplesPerArpeggio, samples) {
-            var isDrum = song.getChannelIsDrum(channel);
-            var synthChannel = synth.channels[channel];
-            var pattern = song.getPattern(channel, synth.bar);
-            var instrument = song.channels[channel].instruments[pattern == null ? 0 : pattern.instrument];
-            var pianoMode = (synth.pianoPressed && channel == synth.pianoChannel);
-            var basePitch = isDrum ? Config.drumBasePitches[instrument.wave] : Config.keyTransposes[song.key];
-            var intervalScale = isDrum ? Config.drumInterval : 1;
-            var pitchDamping = isDrum ? (Config.drumWaveIsSoft[instrument.wave] ? 24.0 : 60.0) : 48.0;
-            var secondsPerPart = 4.0 * samplesPerArpeggio / synth.samplesPerSecond;
+	        Synth.computeChannelInstrument = function (synth, song, channel, time, sampleTime, samplesPerArpeggio, samples) {
+	            var isDrum = song.getChannelIsDrum(channel);
+	            var synthChannel = synth.channels[channel];
+	            var pattern = song.getPattern(channel, synth.bar);
+	            var instrument = song.channels[channel].instruments[pattern == null ? 0 : pattern.instrument];
+	            var pianoMode = (synth.pianoPressed && channel == synth.pianoChannel);
+	            var previewMode = (synth._pianoPreviewActive && channel == synth._pianoPreviewChannel);
+	            var liveMode = pianoMode || previewMode;
+	            if (synth._liveInputOnly && !liveMode) {
+	                pattern = null;
+	                instrument = song.channels[channel].instruments[0];
+	            }
+	            var basePitch = isDrum ? Config.drumBasePitches[instrument.wave] : Config.keyTransposes[song.key];
+	            var intervalScale = isDrum ? Config.drumInterval : 1;
+	            var pitchDamping = isDrum ? (Config.drumWaveIsSoft[instrument.wave] ? 24.0 : 60.0) : 48.0;
+	            var secondsPerPart = 4.0 * samplesPerArpeggio / synth.samplesPerSecond;
             var beatsPerPart = 1.0 / song.partsPerBeat;
 
             synthChannel.phaseDeltaScale = 0.0;
@@ -3062,12 +3226,12 @@ Config.operatorCarrierChorus = [
 				synthChannel.volumeLeft[0] = 0.0;
 				synthChannel.volumeRight[0] = 0.0;
             }
-            if (pianoMode) {
-                pitches = synth.pianoPitch;
-                transitionVolumeStart = transitionVolumeEnd = 1;
-                envelopeVolumeStart = envelopeVolumeEnd = 1;
-                resetPhases = false;
-            }
+	            if (liveMode) {
+	                pitches = pianoMode ? synth.pianoPitch : synth._pianoPreviewPitch;
+	                transitionVolumeStart = transitionVolumeEnd = 1;
+	                envelopeVolumeStart = envelopeVolumeEnd = 1;
+	                resetPhases = false;
+	            }
             else if (pattern != null) {
                 var note = null;
                 var prevNote = null;
